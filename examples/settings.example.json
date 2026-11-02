@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "revision": 0,
+  "appearance": {
+    "theme": "neon",
+    "animations_enabled": true
+  },
+  "device": {
+    "brightness": 75,
+    "volume": 50,
+    "sleep_after_seconds": 300,
+    "transport": "auto",
+    "relay_url": "",
+    "follow_host_brightness": true,
+    "follow_host_sleep": true
+  }
+}

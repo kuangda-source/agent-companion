@@ -1,0 +1,5 @@
+menu "Agent Companion"
+config AC_BOARD_PROBE_ONLY
+    bool "Build the minimal board probe instead of the complete shared UI"
+    default n
+endmenu

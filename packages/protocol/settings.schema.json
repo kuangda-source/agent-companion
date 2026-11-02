@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Companion local preferences and desired device settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "revision",
+    "appearance",
+    "device"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "theme",
+        "animations_enabled"
+      ],
+      "properties": {
+        "theme": {
+          "enum": [
+            "neon",
+            "comic",
+            "neumorphism"
+          ]
+        },
+        "animations_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "device": {
+      "description": "Desired values only. They do not prove a connected device or a successful application.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "brightness",
+        "volume",
+        "sleep_after_seconds",
+        "transport",
+        "relay_url"
+      ],
+      "properties": {
+        "brightness": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 100
+        },
+        "volume": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "sleep_after_seconds": {
+          "enum": [
+            0,
+            60,
+            300,
+            900,
+            1800
+          ]
+        },
+        "transport": {
+          "enum": [
+            "auto",
+            "usb",
+            "wifi",
+            "relay"
+          ]
+        },
+        "relay_url": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "Empty or a WSS URL without credentials, query or fragment. Saving does not connect to this URL."
+        },
+        "follow_host_brightness": {
+          "type": "boolean",
+          "default": true
+        },
+        "follow_host_sleep": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}

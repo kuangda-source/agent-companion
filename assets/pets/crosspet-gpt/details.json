@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "blink": {
+    "source": "offline/000.png",
+    "region": [
+      39,
+      46,
+      31,
+      11
+    ],
+    "expressions": [
+      "idle",
+      "running",
+      "waiting",
+      "unknown"
+    ]
+  }
+}

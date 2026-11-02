@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-companion:pet-pack:1",
+  "title": "Agent Companion Pet Pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "asset_id", "asset_version", "display_name", "canvas", "anchor", "poster", "license", "clips"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "asset_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,47}$" },
+    "asset_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "canvas": { "const": { "width": 128, "height": 128 } },
+    "anchor": { "const": { "x": 64, "y": 120 } },
+    "poster": { "$ref": "#/$defs/pngPath" },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["creator", "license_ref", "source_ref"],
+      "properties": {
+        "creator": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "license_ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "source_ref": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      }
+    },
+    "clips": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idle", "running", "waiting", "error", "offline", "unknown"],
+      "properties": {
+        "idle": { "$ref": "#/$defs/loopClip" },
+        "running": { "$ref": "#/$defs/loopClip" },
+        "waiting": { "$ref": "#/$defs/loopClip" },
+        "error": { "$ref": "#/$defs/loopClip" },
+        "offline": { "$ref": "#/$defs/loopClip" },
+        "unknown": { "$ref": "#/$defs/loopClip" },
+        "celebrate": {
+          "allOf": [
+            { "$ref": "#/$defs/clip" },
+            { "properties": { "loop": { "const": false } } }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pngPath": {
+      "type": "string",
+      "maxLength": 160,
+      "pattern": "^(?:[a-z0-9][a-z0-9_-]*/)*[a-z0-9][a-z0-9_-]*\\.png$"
+    },
+    "clip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "fps", "loop"],
+      "properties": {
+        "frames": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "items": { "$ref": "#/$defs/pngPath" }
+        },
+        "fps": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "loop": { "type": "boolean" },
+        "motion": {
+          "type": "string", "enum": ["none", "breathe", "bob", "shake"],
+          "default": "none"
+        },
+        "effect": {
+          "type": "string", "enum": ["none", "activity_dots", "attention", "error_mark", "sparkle"],
+          "default": "none"
+        }
+      }
+    },
+    "loopClip": {
+      "allOf": [
+        { "$ref": "#/$defs/clip" },
+        { "properties": { "loop": { "const": true } } }
+      ]
+    }
+  }
+}

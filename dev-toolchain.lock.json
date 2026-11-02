@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "platform": "darwin-arm64",
+  "python_minimum": "3.9",
+  "cmake": "3.31.6",
+  "bun": {
+    "version": "1.4.4",
+    "archive": "bun-darwin-aarch64-1.4.4.zip",
+    "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-darwin-aarch64.zip",
+    "sha256": "c240d7f0ccb90c263a849fcdb09b7ee62630d921348ed6aafda86b9d577bc510"
+  },
+  "sdl2": {
+    "version": "2.32.10",
+    "archive": "SDL2-2.32.10.tar.gz",
+    "url": "https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz",
+    "sha256": "5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165"
+  },
+  "lvgl": {
+    "version": "9.5.0",
+    "archive": "lvgl-9.5.0.tar.gz",
+    "url": "https://codeload.github.com/lvgl/lvgl/tar.gz/refs/tags/v9.5.0",
+    "sha256": "34a955cdf3a2d005507b704e87357af669a114523b6d3f77b5344fdc68717bc6"
+  },
+  "ui_font": {
+    "commit": "a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2",
+    "archive": "SourceHanSansSC-Regular.otf",
+    "url": "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2/OTF/SimplifiedChinese/SourceHanSansSC-Regular.otf",
+    "sha256": "f1d8611151880c6c336aabeac4640ef434fa13cbfbf1ffe82d0a71b2a5637256",
+    "license": "assets/fonts/SourceHanSans-LICENSE.txt",
+    "license_sha256": "fcac737e761ec63dbfbdce11030a1780161920d80315edba9c8beff1c2bac5a2"
+  },
+  "ui_font_mono": {
+    "family": "Sarasa Term SC",
+    "version": "1.0.43",
+    "archive": "SarasaTermSC-TTF-Unhinted-1.0.43.7z",
+    "url": "https://github.com/be5invis/Sarasa-Gothic/releases/download/v1.0.43/SarasaTermSC-TTF-Unhinted-1.0.43.7z",
+    "sha256": "f56ceb655d3fb171a3f370dc851e5203ae30ffaecd12f035b3ecc6456d272527",
+    "files": {
+      "SarasaTermSC-Bold.ttf": "f744e4660f4e7fcf5e922a98f438cdc84cae26472e580458a7e9927d1aa46ad2",
+      "SarasaTermSC-Regular.ttf": "222d7841b0e938f03da0cac5c10e06500b685bfc004fabc3f7c744dc405440e4"
+    },
+    "license": "assets/fonts/SarasaTermSC-LICENSE.txt",
+    "license_url": "https://raw.githubusercontent.com/be5invis/Sarasa-Gothic/v1.0.43/LICENSE",
+    "license_sha256": "32c932e0dbae4f6e6386964bbc2d04178707665a05ca65cf636241af13d50a53"
+  }
+}

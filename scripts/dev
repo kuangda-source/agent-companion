@@ -1,0 +1,36 @@
+#!/bin/sh
+set -eu
+TASK_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+export PATH="$TASK_ROOT/.tools/bin:$TASK_ROOT/.venv-dev/bin:$TASK_ROOT/.tools/sdl2/bin:$PATH"
+cd "$TASK_ROOT"
+action=${1:-help}
+if [ "$#" -gt 0 ]; then shift; fi
+case "$action" in
+  setup) exec python3 tools/dev/setup.py "$@" ;;
+  doctor) exec python3 tools/dev/doctor.py "$@" ;;
+  build)
+    python tools/dev/build_font.py
+    python tools/assets/build_pets.py
+    cmake -S . -B .build/simulator -DCMAKE_BUILD_TYPE=Debug
+    cmake --build .build/simulator --parallel 4
+    ;;
+  sim) exec .build/simulator/agent_companion_sim "$@" ;;
+  run) exec python tools/dev/run.py "$@" ;;
+  mac) exec python tools/dev/build_macos.py "$@" ;;
+  gateway) exec bun run apps/gateway/src/main.ts "$@" ;;
+  probe) exec bun run tools/dev/probe_live.ts "$@" ;;
+  check)
+    bun run typecheck
+    python tools/assets/validate_pet.py examples/pets/pet.example.json
+    python -m unittest discover -s tests/contracts -p 'test_*.py'
+    bun test apps/gateway
+    if [ -f .build/simulator/CTestTestfile.cmake ]; then ctest --test-dir .build/simulator --output-on-failure; fi
+    ;;
+  smoke-sim) exec python tools/dev/smoke_simulator.py ;;
+  screenshot)
+    mkdir -p reports/screenshots
+    .build/simulator/agent_companion_sim --frames 15 --capture reports/screenshots/environment-assets.bmp
+    python tools/dev/convert_capture.py reports/screenshots/environment-assets.bmp
+    ;;
+  *) printf '%s\n' 'Usage: ./scripts/dev {setup|doctor|build|run|mac|sim|gateway|check|screenshot|smoke-sim}' ;;
+esac

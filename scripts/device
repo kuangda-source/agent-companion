@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -e
+TASK_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "$TASK_ROOT"
+action=${1:-help}
+if [ "$#" -gt 0 ]; then shift; fi
+case "$action" in
+  setup) exec python3 tools/dev/setup_device.py "$@" ;;
+  doctor) exec python3 tools/dev/doctor_device.py "$@" ;;
+  build)
+    profile=${1:-}
+    case "$profile" in rev1_3|rev3_x) ;; *) printf '%s\n' 'Choose a silicon profile: ./scripts/device build {rev1_3|rev3_x}'; exit 2 ;; esac
+    python3 tools/dev/build_device_fonts.py
+    python3 tools/dev/build_device_pets.py
+    export IDF_TOOLS_PATH="$TASK_ROOT/.tools/esp-idf"
+    export IDF_PATH="$TASK_ROOT/.deps/esp-idf-v5.5.5"
+    if [ ! -f "$IDF_PATH/export.sh" ]; then printf '%s\n' 'Run ./scripts/device setup first'; exit 1; fi
+    source "$IDF_PATH/export.sh"
+    export IDF_TARGET=esp32p4
+    exec python "$IDF_PATH/tools/idf.py" -C "$TASK_ROOT/apps/device" -B "$TASK_ROOT/.build/device-$profile" \
+      -D "SDKCONFIG=$TASK_ROOT/.build/device-$profile/sdkconfig" \
+      -D "SDKCONFIG_DEFAULTS=$TASK_ROOT/apps/device/sdkconfig.defaults;$TASK_ROOT/apps/device/sdkconfig.$profile" build
+    ;;
+  bridge) exec .venv-dev/bin/python tools/dev/device_bridge.py "$@" ;;
+  *) printf '%s\n' 'Usage: ./scripts/device {setup|doctor|build rev1_3|build rev3_x|bridge} (no automatic flashing)' ;;
+esac

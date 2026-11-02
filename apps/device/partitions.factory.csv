@@ -1,0 +1,6 @@
+# Bring-up only: one 24 MiB app, no OTA claims. Flash size is 32 MiB.
+# Name, Type, SubType, Offset, Size, Flags
+nvs, data, nvs, 0xa000, 0x5000,
+phy_init, data, phy, 0xf000, 0x1000,
+factory, app, factory, 0x20000, 0x1800000,
+storage, data, spiffs, 0x1820000, 0x7e0000,

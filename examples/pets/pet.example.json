@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "asset_id": "example-bot",
+  "asset_version": "1.0.0",
+  "display_name": "角色清单模板（不附图片）",
+  "canvas": { "width": 128, "height": 128 },
+  "anchor": { "x": 64, "y": 120 },
+  "poster": "poster.png",
+  "license": {
+    "creator": "待填写实际作者",
+    "license_ref": "待填写实际授权文件或许可证标识",
+    "source_ref": "待填写实际素材来源"
+  },
+  "clips": {
+    "idle": { "frames": ["poster.png"], "fps": 8, "loop": true, "motion": "breathe" },
+    "running": { "frames": ["poster.png"], "fps": 12, "loop": true, "motion": "bob", "effect": "activity_dots" },
+    "waiting": { "frames": ["poster.png"], "fps": 8, "loop": true, "effect": "attention" },
+    "error": { "frames": ["poster.png"], "fps": 8, "loop": true, "effect": "error_mark" },
+    "offline": { "frames": ["poster.png"], "fps": 1, "loop": true },
+    "unknown": { "frames": ["poster.png"], "fps": 1, "loop": true }
+  }
+}

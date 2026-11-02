@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "asset_id": "crosspet-gpt",
+  "canvas": {
+    "width": 128,
+    "height": 128
+  },
+  "anchor": {
+    "x": 64,
+    "y": 120
+  },
+  "asset_version": "1.2.2",
+  "display_name": "Codex",
+  "poster": "idle/000.png",
+  "license": {
+    "creator": "clea / OpenAI image generation and local articulated animation; see license.md",
+    "license_ref": "license.md",
+    "source_ref": "https://github.com/lokicorvus/crosspet/tree/5c64326b6e7fc175eda0360c0bb5c4732541d138/characters/gpt"
+  },
+  "clips": {
+    "idle": {
+      "frames": [
+        "idle/000.png",
+        "idle/001.png",
+        "idle/002.png",
+        "idle/003.png",
+        "idle/004.png",
+        "idle/005.png",
+        "idle/006.png",
+        "idle/007.png",
+        "idle/008.png",
+        "idle/009.png",
+        "idle/010.png",
+        "idle/011.png"
+      ],
+      "fps": 4,
+      "loop": true,
+      "motion": "none",
+      "effect": "none"
+    },
+    "running": {
+      "frames": [
+        "running/000.png",
+        "running/001.png",
+        "running/002.png",
+        "running/003.png",
+        "running/004.png",
+        "running/005.png",
+        "running/006.png",
+        "running/007.png",
+        "running/008.png",
+        "running/009.png",
+        "running/010.png",
+        "running/011.png"
+      ],
+      "fps": 12,
+      "loop": true,
+      "motion": "none",
+      "effect": "none"
+    },
+    "waiting": {
+      "frames": [
+        "waiting/000.png",
+        "waiting/001.png",
+        "waiting/002.png",
+        "waiting/003.png",
+        "waiting/004.png",
+        "waiting/005.png",
+        "waiting/006.png",
+        "waiting/007.png",
+        "waiting/008.png",
+        "waiting/009.png",
+        "waiting/010.png",
+        "waiting/011.png",
+        "waiting/012.png",
+        "waiting/013.png",
+        "waiting/014.png",
+        "waiting/015.png"
+      ],
+      "fps": 8,
+      "loop": true,
+      "motion": "none",
+      "effect": "none"
+    },
+    "error": {
+      "frames": [
+        "error/000.png",
+        "error/001.png",
+        "error/002.png",
+        "error/003.png"
+      ],
+      "fps": 8,
+      "loop": true,
+      "motion": "none",
+      "effect": "none"
+    },
+    "offline": {
+      "frames": [
+        "offline/000.png"
+      ],
+      "fps": 8,
+      "loop": true,
+      "motion": "none",
+      "effect": "none"
+    },
+    "unknown": {
+      "frames": [
+        "unknown/000.png"
+      ],
+      "fps": 8,
+      "loop": true,
+      "motion": "none",
+      "effect": "none"
+    },
+    "celebrate": {
+      "frames": [
+        "celebrate/000.png",
+        "celebrate/001.png",
+        "celebrate/002.png",
+        "celebrate/003.png",
+        "celebrate/004.png",
+        "celebrate/005.png",
+        "celebrate/006.png",
+        "celebrate/007.png",
+        "celebrate/008.png",
+        "celebrate/009.png",
+        "celebrate/010.png",
+        "celebrate/011.png"
+      ],
+      "fps": 10,
+      "loop": false,
+      "motion": "none",
+      "effect": "none"
+    }
+  }
+}

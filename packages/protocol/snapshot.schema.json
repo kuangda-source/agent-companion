@@ -1,0 +1,1085 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-companion.local/snapshot-v1.schema.json",
+  "title": "Agent Companion snapshot v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "data_source",
+    "seq",
+    "generated_at",
+    "agents",
+    "sessions",
+    "token_statistics"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "data_source": {
+      "enum": [
+        "live",
+        "mock"
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/agent"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "codex"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "claude"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "deepseek"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/session"
+      },
+      "maxItems": 15
+    },
+    "token_statistics": {
+      "$ref": "#/$defs/tokenStatistics"
+    },
+    "scheduled_tasks": {
+      "$ref": "#/$defs/scheduled_tasks"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "quality": {
+      "enum": [
+        "confirmed",
+        "estimated",
+        "unavailable",
+        "unknown"
+      ]
+    },
+    "state": {
+      "enum": [
+        "running",
+        "waiting_user",
+        "idle",
+        "completed",
+        "error",
+        "unknown",
+        "disconnected"
+      ]
+    },
+    "health": {
+      "enum": [
+        "fresh",
+        "stale",
+        "disconnected",
+        "unknown"
+      ]
+    },
+    "agentId": {
+      "enum": [
+        "codex",
+        "claude",
+        "deepseek"
+      ]
+    },
+    "count": {
+      "type": "object",
+      "required": [
+        "value",
+        "quality",
+        "source",
+        "observed_at"
+      ],
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "source": {
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quality": {
+                "enum": [
+                  "unavailable",
+                  "unknown"
+                ]
+              },
+              "observed_at": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "quality": {
+                "enum": [
+                  "confirmed",
+                  "estimated"
+                ]
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ratio": {
+      "type": "object",
+      "required": [
+        "value",
+        "quality",
+        "source",
+        "observed_at"
+      ],
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "source": {
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quality": {
+                "enum": [
+                  "unavailable",
+                  "unknown"
+                ]
+              },
+              "observed_at": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "quality": {
+                "enum": [
+                  "confirmed",
+                  "estimated"
+                ]
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "message": {
+      "type": "object",
+      "required": [
+        "id",
+        "role",
+        "text",
+        "timestamp"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2400
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
+        "cache_ratio",
+        "context_ratio"
+      ],
+      "properties": {
+        "input_tokens": {
+          "$ref": "#/$defs/count"
+        },
+        "output_tokens": {
+          "$ref": "#/$defs/count"
+        },
+        "cache_read_tokens": {
+          "$ref": "#/$defs/count"
+        },
+        "cache_write_tokens": {
+          "$ref": "#/$defs/count"
+        },
+        "cache_ratio": {
+          "$ref": "#/$defs/ratio"
+        },
+        "context_ratio": {
+          "$ref": "#/$defs/ratio"
+        }
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "required": [
+        "id",
+        "host_id",
+        "agent_id",
+        "provider_session_id",
+        "source_namespace",
+        "title",
+        "project_name",
+        "model",
+        "state",
+        "status_quality",
+        "status_source",
+        "status_observed_at",
+        "observation_health",
+        "last_activity_at",
+        "started_at",
+        "run_duration_seconds",
+        "completion_event_id",
+        "usage",
+        "messages",
+        "transcript_truncated",
+        "completion_event_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "host_id": {
+          "const": "local"
+        },
+        "agent_id": {
+          "$ref": "#/$defs/agentId"
+        },
+        "provider_session_id": {
+          "type": "string"
+        },
+        "source_namespace": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "project_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/state"
+        },
+        "status_quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "status_source": {
+          "type": "string"
+        },
+        "status_observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation_health": {
+          "$ref": "#/$defs/health"
+        },
+        "last_activity_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_duration_seconds": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completion_event_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          },
+          "maxItems": 12
+        },
+        "transcript_truncated": {
+          "type": "boolean"
+        },
+        "completion_event_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "capability": {
+      "type": "object",
+      "required": [
+        "quality",
+        "source",
+        "note"
+      ],
+      "properties": {
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "source": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "quota": {
+      "type": "object",
+      "required": [
+        "window_minutes",
+        "used_ratio",
+        "resets_at"
+      ],
+      "properties": {
+        "window_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "used_ratio": {
+          "$ref": "#/$defs/ratio"
+        },
+        "resets_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "agent": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "state",
+        "status_quality",
+        "observation_health",
+        "session_count",
+        "running_count",
+        "waiting_count",
+        "observed_at",
+        "note",
+        "capabilities",
+        "quota",
+        "balance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/agentId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/state"
+        },
+        "status_quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "observation_health": {
+          "$ref": "#/$defs/health"
+        },
+        "session_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "running_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waiting_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "object",
+          "required": [
+            "sessions",
+            "messages",
+            "status",
+            "usage"
+          ],
+          "properties": {
+            "sessions": {
+              "$ref": "#/$defs/capability"
+            },
+            "messages": {
+              "$ref": "#/$defs/capability"
+            },
+            "status": {
+              "$ref": "#/$defs/capability"
+            },
+            "usage": {
+              "$ref": "#/$defs/capability"
+            }
+          },
+          "additionalProperties": false
+        },
+        "quota": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/quota"
+          }
+        },
+        "balance": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/accountBalance"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "accountBalance": {
+      "type": "object",
+      "required": [
+        "health",
+        "source",
+        "observed_at",
+        "note",
+        "wallets",
+        "budget"
+      ],
+      "properties": {
+        "health": {
+          "$ref": "#/$defs/health"
+        },
+        "source": {
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "wallets": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "currency",
+              "total",
+              "granted",
+              "topped_up"
+            ],
+            "properties": {
+              "currency": {
+                "enum": [
+                  "CNY",
+                  "USD"
+                ]
+              },
+              "total": {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$",
+                "maxLength": 40
+              },
+              "granted": {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$",
+                "maxLength": 40
+              },
+              "topped_up": {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$",
+                "maxLength": 40
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "budget": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "currency",
+                "amount"
+              ],
+              "properties": {
+                "currency": {
+                  "enum": [
+                    "CNY",
+                    "USD"
+                  ]
+                },
+                "amount": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "tokenStatistics": {
+      "type": "object",
+      "required": [
+        "status",
+        "timezone",
+        "generated_at",
+        "note",
+        "agents",
+        "days"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "loading",
+            "ready",
+            "partial",
+            "failed"
+          ]
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "generated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "agents": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "available",
+              "partial",
+              "source"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/agentId"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "partial": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "allOf": [
+            {
+              "contains": {
+                "properties": {
+                  "id": {
+                    "const": "codex"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "id": {
+                    "const": "claude"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "id": {
+                    "const": "deepseek"
+                  }
+                }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
+        },
+        "days": {
+          "type": "array",
+          "minItems": 30,
+          "maxItems": 30,
+          "items": {
+            "type": "object",
+            "required": [
+              "date",
+              "tokens"
+            ],
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "tokens": {
+                "type": "object",
+                "required": [
+                  "codex",
+                  "claude",
+                  "deepseek"
+                ],
+                "properties": {
+                  "codex": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "claude": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "deepseek": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "scheduled_tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "observed_at",
+        "as_of_epoch",
+        "sources",
+        "tasks"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ready",
+            "failed",
+            "unavailable"
+          ]
+        },
+        "observed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "as_of_epoch": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agent_id",
+              "quality",
+              "note"
+            ],
+            "properties": {
+              "agent_id": {
+                "enum": [
+                  "codex",
+                  "claude",
+                  "deepseek"
+                ]
+              },
+              "quality": {
+                "enum": [
+                  "confirmed",
+                  "estimated",
+                  "unavailable",
+                  "unknown"
+                ]
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "maxItems": 96,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "agent_id",
+              "title",
+              "kind",
+              "status",
+              "next_run_at",
+              "last_run_at",
+              "session_id",
+              "thread_title",
+              "source"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "agent_id": {
+                "enum": [
+                  "codex",
+                  "claude",
+                  "deepseek"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "cron",
+                  "heartbeat",
+                  "unknown"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "active",
+                  "paused",
+                  "unknown"
+                ]
+              },
+              "next_run_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "last_run_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "session_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "thread_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "string"
+              },
+              "conversation_state": {
+                "enum": [
+                  "running",
+                  "waiting_user",
+                  "error",
+                  "unknown",
+                  "idle",
+                  "completed",
+                  "disconnected",
+                  null
+                ],
+                "description": "Current linked conversation observation; never inferred from a due time."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

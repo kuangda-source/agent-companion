@@ -1,0 +1,10 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Authenticated relay liveness controls",
+  "description":"Heartbeat request/reply and periodic role presence on the same authorized WSS role. These confirm transport state only, never that a live view was applied.",
+  "oneOf":[
+    {"type":"object","additionalProperties":false,"required":["kind","id"],"properties":{"kind":{"const":"heartbeat"},"id":{"type":"integer","minimum":0,"maximum":9007199254740991}}},
+    {"type":"object","additionalProperties":false,"required":["kind","id","mac_connected","device_connected"],"properties":{"kind":{"const":"heartbeat"},"id":{"type":"integer","minimum":0,"maximum":9007199254740991},"mac_connected":{"type":"boolean"},"device_connected":{"type":"boolean"}}},
+    {"type":"object","additionalProperties":false,"required":["kind","mac_connected","device_connected"],"properties":{"kind":{"const":"peer"},"mac_connected":{"type":"boolean"},"device_connected":{"type":"boolean"}}}
+  ]
+}

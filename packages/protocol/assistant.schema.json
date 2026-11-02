@@ -1,0 +1,24 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Local assistant message feed, independent of monitoring snapshots",
+  "type":"object","required":["schema_version","data_source","revision","status","model","messages"],
+  "properties":{
+    "schema_version":{"const":1},"data_source":{"enum":["live","mock"]},"revision":{"type":"integer","minimum":0},
+    "status":{"enum":["unconfigured","ready","updating","failed","offline"]},"model":{"type":"string","maxLength":120},
+    "runtime":{"type":"object","required":["chat_engine","briefing_engine","memory_count","persona_revision","history_token_budget"],"properties":{
+      "chat_engine":{"enum":["builtin","mastra","letta"]},"briefing_engine":{"enum":["builtin","mastra","letta"]},"memory_count":{"type":"integer","minimum":0,"maximum":64},"persona_revision":{"type":"integer","minimum":1},"history_token_budget":{"type":["integer","null"],"minimum":1}
+    }},
+    "automation":{"type":"object","required":["engine","scan_seconds","merge_seconds","max_wait_seconds","pending_events","queued_jobs","events_seen","suppressed_batches","last_scan_at","last_published_at","attention_open"],"properties":{
+      "engine":{"const":"dsh-superagent-core"},"scan_seconds":{"const":15},"merge_seconds":{"const":30},"max_wait_seconds":{"const":120},
+      "pending_events":{"type":"integer","minimum":0},"queued_jobs":{"type":"integer","minimum":0},"events_seen":{"type":"integer","minimum":0},"suppressed_batches":{"type":"integer","minimum":0},"attention_open":{"type":"integer","minimum":0,"maximum":64},
+      "last_scan_at":{"type":["string","null"],"format":"date-time"},"last_published_at":{"type":["string","null"],"format":"date-time"}
+    }},
+    "attention_items":{"type":"array","maxItems":64,"items":{"type":"object","required":["id","key","project_id","status","text","source_ids","cycle","updated_at"],"properties":{
+      "id":{"type":"string"},"key":{"type":"string","pattern":"^[a-zA-Z0-9_.:-]{1,100}$"},"project_id":{"type":"string"},"status":{"const":"open"},"text":{"type":"string","maxLength":500},"source_ids":{"type":"array","maxItems":32,"items":{"type":"string"}},"cycle":{"type":"integer","minimum":0},"updated_at":{"type":"string","format":"date-time"}
+    }}},
+    "messages":{"type":"array","maxItems":8,"items":{"type":"object","required":["id","role","kind","text","created_at","source_ids"],"properties":{
+      "id":{"type":"string","minLength":1,"maxLength":95},"role":{"enum":["user","assistant"]},"kind":{"enum":["briefing","chat"]},
+      "text":{"type":"string","maxLength":5000},"created_at":{"type":"string","format":"date-time"},"source_ids":{"type":"array","items":{"type":"string"},"maxItems":256}
+    }}}
+  }
+}

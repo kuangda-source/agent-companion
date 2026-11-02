@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Authenticated outbound WSS V1 view",
+  "allOf": [
+    {
+      "$ref": "usb-viewer.schema.json"
+    },
+    {
+      "required": [
+        "gateway_boot_id"
+      ],
+      "not": {
+        "required": [
+          "capture"
+        ]
+      }
+    }
+  ],
+  "description": "Same application DTO as USB; no model credentials. Device rejects non-fresh, repeated or older IDs within a Gateway boot. Relay forwards only; no payload persistence."
+}

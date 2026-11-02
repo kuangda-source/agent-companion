@@ -1,0 +1,1694 @@
+{
+  "schema_version": 1,
+  "data_source": "mock",
+  "seq": 1,
+  "generated_at": "2026-10-30T09:35:26.654Z",
+  "sessions": [
+    {
+      "id": "codex:mock:mock-session-1",
+      "host_id": "local",
+      "agent_id": "codex",
+      "provider_session_id": "mock-session-1",
+      "source_namespace": "mock",
+      "title": "桌宠界面与状态同步",
+      "project_name": "模拟开发",
+      "model": "codex-demo",
+      "state": "running",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": null,
+      "completion_event_at": null,
+      "usage": {
+        "input_tokens": {
+          "value": 18500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1200,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.23,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "codex:mock:mock-session-2",
+      "host_id": "local",
+      "agent_id": "codex",
+      "provider_session_id": "mock-session-2",
+      "source_namespace": "mock",
+      "title": "Gateway 会话采集",
+      "project_name": "模拟开发",
+      "model": "codex-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "483d644d-b305-5d35-ad9f-8285a10617d0",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 21300,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1550,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.31,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "codex:mock:mock-session-3",
+      "host_id": "local",
+      "agent_id": "codex",
+      "provider_session_id": "mock-session-3",
+      "source_namespace": "mock",
+      "title": "素材动作验收",
+      "project_name": "模拟开发",
+      "model": "codex-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "6498c616-f15d-5ef7-ae29-3362a47f1adf",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 24100,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1900,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.39,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "codex:mock:mock-session-4",
+      "host_id": "local",
+      "agent_id": "codex",
+      "provider_session_id": "mock-session-4",
+      "source_namespace": "mock",
+      "title": "协议与连接恢复",
+      "project_name": "模拟开发",
+      "model": "codex-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "ebf592de-0bfc-5cd2-adbc-86c80d835d70",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 26900,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 2250,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.47,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "codex:mock:mock-session-5",
+      "host_id": "local",
+      "agent_id": "codex",
+      "provider_session_id": "mock-session-5",
+      "source_namespace": "mock",
+      "title": "项目开发记录",
+      "project_name": "模拟开发",
+      "model": "codex-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "746dde8c-3196-5644-aa58-5270917e6d7d",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 29700,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 2600,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.55,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "claude:mock:mock-session-1",
+      "host_id": "local",
+      "agent_id": "claude",
+      "provider_session_id": "mock-session-1",
+      "source_namespace": "mock",
+      "title": "桌宠界面与状态同步",
+      "project_name": "模拟开发",
+      "model": "claude-demo",
+      "state": "idle",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": null,
+      "completion_event_at": null,
+      "usage": {
+        "input_tokens": {
+          "value": 18500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1200,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.23,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "claude:mock:mock-session-2",
+      "host_id": "local",
+      "agent_id": "claude",
+      "provider_session_id": "mock-session-2",
+      "source_namespace": "mock",
+      "title": "Gateway 会话采集",
+      "project_name": "模拟开发",
+      "model": "claude-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "e3ef4e66-a381-55a7-a17b-4e4761de4108",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 21300,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1550,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.31,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "claude:mock:mock-session-3",
+      "host_id": "local",
+      "agent_id": "claude",
+      "provider_session_id": "mock-session-3",
+      "source_namespace": "mock",
+      "title": "素材动作验收",
+      "project_name": "模拟开发",
+      "model": "claude-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "2a9c4294-99ec-5be8-af00-003888be8cbf",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 24100,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1900,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.39,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "claude:mock:mock-session-4",
+      "host_id": "local",
+      "agent_id": "claude",
+      "provider_session_id": "mock-session-4",
+      "source_namespace": "mock",
+      "title": "协议与连接恢复",
+      "project_name": "模拟开发",
+      "model": "claude-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "511d4a8e-b310-5236-a1d4-cb04990321c5",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 26900,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 2250,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.47,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "claude:mock:mock-session-5",
+      "host_id": "local",
+      "agent_id": "claude",
+      "provider_session_id": "mock-session-5",
+      "source_namespace": "mock",
+      "title": "项目开发记录",
+      "project_name": "模拟开发",
+      "model": "claude-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "5ff01bda-8e0f-5ce0-a0fc-7213b580461b",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 29700,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 2600,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.55,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "deepseek:mock:mock-session-1",
+      "host_id": "local",
+      "agent_id": "deepseek",
+      "provider_session_id": "mock-session-1",
+      "source_namespace": "mock",
+      "title": "桌宠界面与状态同步",
+      "project_name": "模拟开发",
+      "model": "deepseek-demo",
+      "state": "unknown",
+      "status_quality": "unknown",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.655Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": null,
+      "completion_event_at": null,
+      "usage": {
+        "input_tokens": {
+          "value": 18500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1200,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.23,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "deepseek:mock:mock-session-2",
+      "host_id": "local",
+      "agent_id": "deepseek",
+      "provider_session_id": "mock-session-2",
+      "source_namespace": "mock",
+      "title": "Gateway 会话采集",
+      "project_name": "模拟开发",
+      "model": "deepseek-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.656Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "54d1b1b6-a9d5-51bb-a7e5-1c6243c7231d",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 21300,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1550,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.31,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "deepseek:mock:mock-session-3",
+      "host_id": "local",
+      "agent_id": "deepseek",
+      "provider_session_id": "mock-session-3",
+      "source_namespace": "mock",
+      "title": "素材动作验收",
+      "project_name": "模拟开发",
+      "model": "deepseek-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.656Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "58754f03-a4ab-58cb-ab6e-a1a349165309",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 24100,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 1900,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.39,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "deepseek:mock:mock-session-4",
+      "host_id": "local",
+      "agent_id": "deepseek",
+      "provider_session_id": "mock-session-4",
+      "source_namespace": "mock",
+      "title": "协议与连接恢复",
+      "project_name": "模拟开发",
+      "model": "deepseek-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.656Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "19cdf39e-7b1c-5038-abad-182b35a75c7e",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 26900,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 2250,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.47,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    },
+    {
+      "id": "deepseek:mock:mock-session-5",
+      "host_id": "local",
+      "agent_id": "deepseek",
+      "provider_session_id": "mock-session-5",
+      "source_namespace": "mock",
+      "title": "项目开发记录",
+      "project_name": "模拟开发",
+      "model": "deepseek-demo",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "status_source": "mock.scenario",
+      "status_observed_at": "2026-10-30T09:35:26.654Z",
+      "observation_health": "fresh",
+      "last_activity_at": "2026-10-30T09:35:26.654Z",
+      "started_at": "2026-10-30T09:33:20.656Z",
+      "run_duration_seconds": 126,
+      "completion_event_id": "ec69bcb0-d38c-5785-ab69-66110c099b76",
+      "completion_event_at": "2026-10-30T09:35:26.654Z",
+      "usage": {
+        "input_tokens": {
+          "value": 29700,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "output_tokens": {
+          "value": 2600,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_read_tokens": {
+          "value": 9000,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_write_tokens": {
+          "value": 500,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "cache_ratio": {
+          "value": 0.49,
+          "quality": "confirmed",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        },
+        "context_ratio": {
+          "value": 0.55,
+          "quality": "estimated",
+          "source": "mock",
+          "observed_at": "2026-10-30T09:35:26.654Z"
+        }
+      },
+      "messages": [
+        {
+          "id": "mock-user-1",
+          "role": "user",
+          "text": "把三家 Agent 的状态和对话接到桌宠界面，底部按钮先只做点击反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-1",
+          "role": "assistant",
+          "text": "已保留三宠、五会话和底部入口。运行时显示工作动作；等待输入、异常、完成和掉线都有对应反馈。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-user-2",
+          "role": "user",
+          "text": "切换 Agent 后，另外两只桌宠也继续播放各自状态。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        },
+        {
+          "id": "mock-assistant-2",
+          "role": "assistant",
+          "text": "这是一段模拟对话，用于验证只读详情、中文排版和滚动。\n\n真实模式只展示本机已有的公开对话；没有可靠状态证据时显示未知，额度不可得时显示 —。",
+          "timestamp": "2026-10-30T09:35:26.654Z"
+        }
+      ],
+      "transcript_truncated": false
+    }
+  ],
+  "agents": [
+    {
+      "id": "codex",
+      "name": "Codex",
+      "state": "running",
+      "status_quality": "confirmed",
+      "observation_health": "fresh",
+      "session_count": 5,
+      "running_count": 1,
+      "waiting_count": 0,
+      "observed_at": "2026-10-30T09:35:26.654Z",
+      "note": "MOCK 场景演示，非真实 Agent 记录",
+      "capabilities": {
+        "sessions": {
+          "quality": "confirmed",
+          "source": "codex.rollout + readonly_sqlite + live_writer_fd",
+          "note": "已读取本机记录"
+        },
+        "messages": {
+          "quality": "confirmed",
+          "source": "codex.rollout + readonly_sqlite + live_writer_fd",
+          "note": "仅显示用户与助手公开正文"
+        },
+        "status": {
+          "quality": "confirmed",
+          "source": "codex.rollout + readonly_sqlite + live_writer_fd",
+          "note": "显式生命周期；运行态核查存活 writer"
+        },
+        "usage": {
+          "quality": "confirmed",
+          "source": "codex.rollout + readonly_sqlite + live_writer_fd",
+          "note": "不可得字段为 null；上下文仅估计"
+        }
+      },
+      "quota": [
+        {
+          "window_minutes": 10080,
+          "used_ratio": {
+            "value": 0.2,
+            "quality": "confirmed",
+            "source": "mock.quota",
+            "observed_at": "2026-10-30T09:35:26.654Z"
+          },
+          "resets_at": "2026-11-06T09:35:26.658Z"
+        }
+      ],
+      "balance": null
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "state": "idle",
+      "status_quality": "confirmed",
+      "observation_health": "fresh",
+      "session_count": 5,
+      "running_count": 0,
+      "waiting_count": 0,
+      "observed_at": "2026-10-30T09:35:26.654Z",
+      "note": "MOCK 场景演示，非真实 Agent 记录",
+      "capabilities": {
+        "sessions": {
+          "quality": "confirmed",
+          "source": "claude.code_jsonl",
+          "note": "已读取本机记录"
+        },
+        "messages": {
+          "quality": "confirmed",
+          "source": "claude.code_jsonl",
+          "note": "仅显示用户与助手公开正文"
+        },
+        "status": {
+          "quality": "confirmed",
+          "source": "claude.code_jsonl",
+          "note": "历史完成可确认；运行中/审批待验证"
+        },
+        "usage": {
+          "quality": "confirmed",
+          "source": "claude.code_jsonl",
+          "note": "不可得字段为 null；上下文仅估计"
+        }
+      },
+      "quota": [
+        {
+          "window_minutes": 10080,
+          "used_ratio": {
+            "value": 0.5,
+            "quality": "confirmed",
+            "source": "mock.quota",
+            "observed_at": "2026-10-30T09:35:26.654Z"
+          },
+          "resets_at": "2026-11-06T09:35:26.658Z"
+        }
+      ],
+      "balance": null
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "state": "completed",
+      "status_quality": "confirmed",
+      "observation_health": "fresh",
+      "session_count": 5,
+      "running_count": 0,
+      "waiting_count": 0,
+      "observed_at": "2026-10-30T09:35:26.654Z",
+      "note": "MOCK 场景演示，非真实 Agent 记录",
+      "capabilities": {
+        "sessions": {
+          "quality": "confirmed",
+          "source": "dsh.session_v4 + projection_cache",
+          "note": "已读取本机记录"
+        },
+        "messages": {
+          "quality": "confirmed",
+          "source": "dsh.session_v4 + projection_cache",
+          "note": "仅显示用户与助手公开正文"
+        },
+        "status": {
+          "quality": "confirmed",
+          "source": "dsh.session_v4 + projection_cache",
+          "note": "显式生命周期；运行态核查存活 writer"
+        },
+        "usage": {
+          "quality": "confirmed",
+          "source": "dsh.session_v4 + projection_cache",
+          "note": "不可得字段为 null；上下文仅估计"
+        }
+      },
+      "quota": [
+        {
+          "window_minutes": 10080,
+          "used_ratio": {
+            "value": 0.8,
+            "quality": "confirmed",
+            "source": "mock.quota",
+            "observed_at": "2026-10-30T09:35:26.654Z"
+          },
+          "resets_at": "2026-11-06T09:35:26.659Z"
+        }
+      ],
+      "balance": null
+    }
+  ],
+  "token_statistics": {
+    "status": "ready",
+    "timezone": "Asia/Shanghai",
+    "generated_at": "2026-10-30T09:35:26.654Z",
+    "note": "MOCK 每日 Token 统计，非真实账户消耗",
+    "agents": [
+      {
+        "id": "codex",
+        "available": true,
+        "partial": false,
+        "source": "mock.daily_usage"
+      },
+      {
+        "id": "claude",
+        "available": true,
+        "partial": false,
+        "source": "mock.daily_usage"
+      },
+      {
+        "id": "deepseek",
+        "available": true,
+        "partial": false,
+        "source": "mock.daily_usage"
+      }
+    ],
+    "days": [
+      {
+        "date": "2026-10-01",
+        "tokens": {
+          "codex": 420000,
+          "claude": 190000,
+          "deepseek": 160000
+        }
+      },
+      {
+        "date": "2026-10-02",
+        "tokens": {
+          "codex": 840000,
+          "claude": 380000,
+          "deepseek": 320000
+        }
+      },
+      {
+        "date": "2026-10-03",
+        "tokens": {
+          "codex": 1260000,
+          "claude": 570000,
+          "deepseek": 480000
+        }
+      },
+      {
+        "date": "2026-10-04",
+        "tokens": {
+          "codex": 1680000,
+          "claude": 760000,
+          "deepseek": 640000
+        }
+      },
+      {
+        "date": "2026-10-05",
+        "tokens": {
+          "codex": 2100000,
+          "claude": 950000,
+          "deepseek": 800000
+        }
+      },
+      {
+        "date": "2026-10-06",
+        "tokens": {
+          "codex": 2520000,
+          "claude": 190000,
+          "deepseek": 960000
+        }
+      },
+      {
+        "date": "2026-10-07",
+        "tokens": {
+          "codex": 2940000,
+          "claude": 380000,
+          "deepseek": 1120000
+        }
+      },
+      {
+        "date": "2026-10-08",
+        "tokens": {
+          "codex": 420000,
+          "claude": 570000,
+          "deepseek": 1280000
+        }
+      },
+      {
+        "date": "2026-10-09",
+        "tokens": {
+          "codex": 840000,
+          "claude": 760000,
+          "deepseek": 1440000
+        }
+      },
+      {
+        "date": "2026-10-10",
+        "tokens": {
+          "codex": 1260000,
+          "claude": 950000,
+          "deepseek": 160000
+        }
+      },
+      {
+        "date": "2026-10-11",
+        "tokens": {
+          "codex": 1680000,
+          "claude": 190000,
+          "deepseek": 320000
+        }
+      },
+      {
+        "date": "2026-10-12",
+        "tokens": {
+          "codex": 2100000,
+          "claude": 380000,
+          "deepseek": 480000
+        }
+      },
+      {
+        "date": "2026-10-13",
+        "tokens": {
+          "codex": 2520000,
+          "claude": 570000,
+          "deepseek": 640000
+        }
+      },
+      {
+        "date": "2026-10-14",
+        "tokens": {
+          "codex": 2940000,
+          "claude": 760000,
+          "deepseek": 800000
+        }
+      },
+      {
+        "date": "2026-10-15",
+        "tokens": {
+          "codex": 420000,
+          "claude": 950000,
+          "deepseek": 960000
+        }
+      },
+      {
+        "date": "2026-10-16",
+        "tokens": {
+          "codex": 840000,
+          "claude": 190000,
+          "deepseek": 1120000
+        }
+      },
+      {
+        "date": "2026-10-17",
+        "tokens": {
+          "codex": 1260000,
+          "claude": 380000,
+          "deepseek": 1280000
+        }
+      },
+      {
+        "date": "2026-10-18",
+        "tokens": {
+          "codex": 1680000,
+          "claude": 570000,
+          "deepseek": 1440000
+        }
+      },
+      {
+        "date": "2026-10-19",
+        "tokens": {
+          "codex": 2100000,
+          "claude": 760000,
+          "deepseek": 160000
+        }
+      },
+      {
+        "date": "2026-10-20",
+        "tokens": {
+          "codex": 2520000,
+          "claude": 950000,
+          "deepseek": 320000
+        }
+      },
+      {
+        "date": "2026-10-21",
+        "tokens": {
+          "codex": 2940000,
+          "claude": 190000,
+          "deepseek": 480000
+        }
+      },
+      {
+        "date": "2026-10-22",
+        "tokens": {
+          "codex": 420000,
+          "claude": 380000,
+          "deepseek": 640000
+        }
+      },
+      {
+        "date": "2026-10-23",
+        "tokens": {
+          "codex": 840000,
+          "claude": 570000,
+          "deepseek": 800000
+        }
+      },
+      {
+        "date": "2026-10-24",
+        "tokens": {
+          "codex": 1260000,
+          "claude": 760000,
+          "deepseek": 960000
+        }
+      },
+      {
+        "date": "2026-10-25",
+        "tokens": {
+          "codex": 1680000,
+          "claude": 950000,
+          "deepseek": 1120000
+        }
+      },
+      {
+        "date": "2026-10-26",
+        "tokens": {
+          "codex": 2100000,
+          "claude": 190000,
+          "deepseek": 1280000
+        }
+      },
+      {
+        "date": "2026-10-27",
+        "tokens": {
+          "codex": 2520000,
+          "claude": 380000,
+          "deepseek": 1440000
+        }
+      },
+      {
+        "date": "2026-10-28",
+        "tokens": {
+          "codex": 2940000,
+          "claude": 570000,
+          "deepseek": 160000
+        }
+      },
+      {
+        "date": "2026-10-29",
+        "tokens": {
+          "codex": 420000,
+          "claude": 760000,
+          "deepseek": 320000
+        }
+      },
+      {
+        "date": "2026-10-30",
+        "tokens": {
+          "codex": 840000,
+          "claude": 950000,
+          "deepseek": 480000
+        }
+      }
+    ]
+  }
+}

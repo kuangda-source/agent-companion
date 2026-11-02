@@ -1,0 +1,13 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Application-owned assistant persona and explicit preferences",
+  "type":"object","required":["schema_version","revision","persona","items"],
+  "properties":{
+    "schema_version":{"const":1},"revision":{"type":"integer","minimum":0},
+    "persona":{"type":"object","required":["id","revision","instructions"],"properties":{"id":{"type":"string"},"revision":{"type":"integer","minimum":1},"instructions":{"type":"string","minLength":1,"maxLength":1200}}},
+    "items":{"type":"array","maxItems":64,"items":{"type":"object","required":["id","kind","text","revision","status","source","updated_at","supersedes"],"properties":{
+      "id":{"type":"string"},"kind":{"enum":["preference","episode"]},"text":{"type":"string","minLength":1,"maxLength":800},"revision":{"type":"integer","minimum":1},"status":{"const":"active"},"updated_at":{"type":"string","format":"date-time"},"supersedes":{"type":["string","null"]},
+      "source":{"type":"object","required":["conversation_id","message_id","timestamp"],"properties":{"conversation_id":{"type":"string"},"message_id":{"type":["string","null"]},"timestamp":{"type":"string","format":"date-time"}}}
+    }}}
+  }
+}

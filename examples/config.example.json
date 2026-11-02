@@ -1,0 +1,43 @@
+{
+  "_comment": "Example UI asset bindings; actual private configuration is managed by the Mac app. No credentials belong here.",
+  "gateway": {
+    "listen_local": "127.0.0.1",
+    "port": 8736,
+    "wifi_enabled": false,
+    "require_pairing": true
+  },
+  "device": {
+    "prefer_transport": "prefer_wifi",
+    "ui_resolution": [
+      1024,
+      600
+    ],
+    "selected_agent": "codex",
+    "animation_level": "normal"
+  },
+  "assistant": {
+    "asr_provider": "mock",
+    "llm_provider": "mock",
+    "tts_provider": "mock",
+    "record_max_seconds": 45,
+    "memory_enabled": true
+  },
+  "diagnostics": {
+    "pelican_default_runs": 1,
+    "pelican_max_concurrency": 1,
+    "inference_check_needs_confirmation": true
+  },
+  "ui": {
+    "pet_assets": {
+      "codex": "crosspet-gpt",
+      "claude": "crosspet-claude",
+      "deepseek": "crosspet-deepseek"
+    },
+    "pet_assets_note": "演示绑定用户提供的 clea 素材包，角色许可见各自 license.md；缺失时使用内置占位。",
+    "buttons": [
+      "assistant",
+      "pelican",
+      "connectivity"
+    ]
+  }
+}

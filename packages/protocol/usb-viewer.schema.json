@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Local USB V1 viewer envelope inside an AC1 length/CRC32 frame",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sent_at",
+    "state",
+    "assistant",
+    "settings"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "sent_at": {
+      "type": "number",
+      "minimum": 1700000000,
+      "maximum": 4102444800
+    },
+    "state": {
+      "allOf": [
+        {
+          "$ref": "snapshot.schema.json"
+        },
+        {
+          "properties": {
+            "data_source": {
+              "const": "live"
+            }
+          }
+        }
+      ]
+    },
+    "assistant": {
+      "allOf": [
+        {
+          "$ref": "assistant.schema.json"
+        },
+        {
+          "properties": {
+            "data_source": {
+              "const": "live"
+            },
+            "messages": {
+              "maxItems": 8
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "appearance"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "appearance": {
+          "$ref": "settings.schema.json#/properties/appearance"
+        },
+        "display": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "brightness_percent",
+            "screen_on"
+          ],
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "brightness_percent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "screen_on": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "detail": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "messages"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 159
+        },
+        "title": {
+          "type": "string"
+        },
+        "messages": {
+          "type": "array",
+          "maxItems": 12
+        }
+      }
+    },
+    "capture": {
+      "type": "boolean",
+      "description": "Optional one-shot on-device LVGL render export; contains no model credentials."
+    },
+    "gateway_boot_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    }
+  },
+  "description": "UTF-8 JSON <=192 KiB. AC1 <decimal-byte-length> <8-hex-CRC32> LF, then exact body bytes and LF. CRC32 is transport integrity, not network authentication; access is physical local USB. Host restricts Gateway to loopback and retains its bearer token."
+}
