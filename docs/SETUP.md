@@ -9,7 +9,7 @@
 ./scripts/dev doctor
 ./scripts/dev build
 ./scripts/dev check
-./scripts/dev sim --mock
+PORT=8876 ./scripts/dev run --mock
 ./scripts/dev mac
 ```
 

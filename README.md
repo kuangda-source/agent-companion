@@ -20,7 +20,7 @@ cd agent-companion
 ./scripts/dev setup
 ./scripts/dev doctor
 ./scripts/dev build
-./scripts/dev sim --mock
+PORT=8876 ./scripts/dev run --mock
 ```
 
 构建 Mac 控制软件：
@@ -51,7 +51,7 @@ Token 为本机可读取记录统计，缓存计数包含在输入中，不重�
 ```text
 请帮我安装并运行 https://github.com/kuangda-source/agent-companion 。
 先阅读 README.md、AGENTS.md 和 docs/SETUP.md，检查我的系统是否满足要求。
-按仓库锁定的工具链安装，先运行 ./scripts/dev sim --mock 验证，再构建 Mac 软件。
+按仓库锁定的工具链安装，先运行 PORT=8876 ./scripts/dev run --mock 验证，再构建 Mac 软件。
 不要读取或上传我的密钥、Wi-Fi 密码、会话正文和其他项目文件，也不要修改原 Agent 配置。
 助手 API、DeepSeek Key 和中转凭据由我在软件界面本机填写，配置留空时跳过可选功能。
 有板子时先识别 ESP32-P4 芯片版本、USB 端口和原厂固件备份；先给出具体刷写命令，等我明确确认再刷写，保留 NVS 配网数据。
