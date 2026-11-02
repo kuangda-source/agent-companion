@@ -6,9 +6,9 @@
 
 ## 演示
 
-[![点击观看软件演示](docs/media/demo.gif)](docs/media/demo.mp4)
+[![点击观看软件演示](docs/media/demo-0.4.0.gif)](docs/media/demo-0.4.0.mp4)
 
-[观看 MP4 演示](docs/media/demo.mp4) · 录制自实际运行的 LVGL 模拟器，使用显著标注的 **MOCK 数据**，不包含真实对话或账号信息。
+[观看 MP4 演示](docs/media/demo-0.4.0.mp4) · 录制自实际运行的 LVGL 模拟器，使用显著标注的 **MOCK 数据**，不包含真实对话或账号信息。
 
 ## 使用说明
 
