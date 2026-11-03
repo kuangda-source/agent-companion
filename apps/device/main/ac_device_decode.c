@@ -33,6 +33,10 @@ static void session(ac_session_t *d,const cJSON *s){
     d->state=state(get(s,"state"));d->quality=quality(get(s,"status_quality"));d->health=health(get(s,"observation_health"));d->duration_seconds=num(get(s,"run_duration_seconds"));
     const cJSON *u=get(s,"usage");d->input=metric(get(u,"input_tokens"));d->output=metric(get(u,"output_tokens"));d->cache_ratio=metric(get(u,"cache_ratio"));d->context_ratio=metric(get(u,"context_ratio"));
     if(d->cache_ratio.value>1)d->cache_ratio.available=false;if(d->context_ratio.value>1)d->context_ratio.available=false;
+    const cJSON *message;cJSON_ArrayForEach(message,get(s,"messages")){
+        const char *role=str(get(message,"role"));if(strcmp(role,"user")&&strcmp(role,"assistant"))continue;
+        text(d->latest_message,sizeof(d->latest_message),get(message,"text"));d->latest_message_assistant=!strcmp(role,"assistant");
+    }
 }
 static bool decimal(const cJSON *v,double *out){if(!cJSON_IsString(v)||!v->valuestring[0]||strlen(v->valuestring)>40)return false;char *end;double n=strtod(v->valuestring,&end);if(!isfinite(n)||*end)return false;*out=n;return true;}
 static void balance(ac_balance_t *d,const cJSON *o){

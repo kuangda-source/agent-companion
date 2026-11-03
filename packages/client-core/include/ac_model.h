@@ -48,6 +48,8 @@ typedef struct {
     char completion_id[AC_PET_COMPLETION_ID_CAPACITY];
     char observed_at[32];
     char last_activity_at[32];
+    char latest_message[512];
+    bool latest_message_assistant;
     bool completion_recent;
     ac_state_t state;
     ac_data_quality_t quality;

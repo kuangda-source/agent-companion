@@ -31,7 +31,7 @@ export function summarize(id: AgentId, sessions: Session[], count: number, at: s
     id, name: names[id], state: best?.state ?? "unknown", status_quality: best?.status_quality ?? "unknown", observation_health: best?.observation_health ?? "fresh",
     session_count: count, running_count: fresh.filter(s => s.state === "running").length,
     waiting_count: fresh.filter(s => s.state === "waiting_user").length, observed_at: at,
-    note: id==="grok"?"Bot 名称与公开消息来自本地缓存；实时工作状态和 Token 未提供；额度仅为上次缓存":sessions.length ? fresh.length < sessions.length ? "部分记录暂时不可读；显示可确认信息" : "本机只读观察" : id === "claude" ? "未发现 Claude Code 会话；等待真实样本" : "未发现可读取的本地会话",
+    note: id==="grok"?"Bot 名称与公开消息来自本地缓存；实时工作状态和 Token 未提供；额度每10分钟读取本地缓存":sessions.length ? fresh.length < sessions.length ? "部分记录暂时不可读；显示可确认信息" : "本机只读观察" : id === "claude" ? "未发现 Claude Code 会话；等待真实样本" : "未发现可读取的本地会话",
     capabilities: {
       sessions: capability(sessions.length ? "confirmed" : "unknown", source, sessions.length ? "已读取本机记录" : "无可验收样本"),
       messages: capability(hasMessages ? "confirmed" : "unknown", source, "仅显示用户与助手公开正文"),

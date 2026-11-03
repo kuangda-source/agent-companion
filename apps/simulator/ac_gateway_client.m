@@ -126,6 +126,11 @@ static void session_decode(ac_session_t *dest, NSDictionary *s)
     dest->cache_ratio=metric(u[@"cache_ratio"]); dest->context_ratio=metric(u[@"context_ratio"]);
     if(dest->cache_ratio.value>1) dest->cache_ratio.available=false;
     if(dest->context_ratio.value>1) dest->context_ratio.available=false;
+    for(id raw in arr(s[@"messages"])){
+        NSDictionary *message=obj(raw);NSString *role=str(message[@"role"]);
+        if(![role isEqual:@"user"]&&![role isEqual:@"assistant"])continue;
+        copy_text(dest->latest_message,sizeof(dest->latest_message),message[@"text"]);dest->latest_message_assistant=[role isEqual:@"assistant"];
+    }
 }
 static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_mock)
 {

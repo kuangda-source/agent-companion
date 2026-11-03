@@ -2,17 +2,33 @@ import {test,expect} from "bun:test";
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {GrokAdapter,grokCacheKey,grokCachedQuota} from "./src/adapters/grok.ts";
+import {GrokAdapter,grokCacheKey,grokCachedQuota,GROK_QUOTA_INTERVAL_MS} from "./src/adapters/grok.ts";
 import {readAssistantSource} from "./src/assistant-source.ts";
 import {SettingsStore} from "./src/settings.ts";
 import {MockState} from "./src/scenarios.ts";
 import {createMockGateway} from "./src/server.ts";
 
 function filename(key:string){let bits=0,value=0,out="";for(const byte of Buffer.from(key)){value=(value<<8)|byte;bits+=8;while(bits>=5){bits-=5;out+="abcdefghijklmnopqrstuvwxyz234567"[(value>>bits)&31];value&=(1<<bits)-1;}}if(bits)out+="abcdefghijklmnopqrstuvwxyz234567"[(value<<(5-bits))&31];return out+".blob";}
-test("Grok quota uses the original cache time and is always labeled last-known",()=>{
+test("Grok quota retains the original cache time and cached source health",()=>{
  const cache={selectedTeamId:null,reading:{usage:{percentUsed:5.5,nextResetMs:1794318313233,hasNonZeroIncludedLimit:true},readAtMs:1793719900467}};
  const q=grokCachedQuota(cache)[0];expect(q.used_ratio.value).toBe(.055);expect(q.used_ratio.observed_at).toBe(new Date(cache.reading.readAtMs).toISOString());expect(q.health).toBe("stale");
  expect(grokCachedQuota({...cache,selectedTeamId:"different-scope"})).toEqual([]);expect(grokCachedQuota({reading:{usage:{percentUsed:101}}})).toEqual([]);
+});
+test("Grok reads quota every ten minutes while recent messages continue to update",async()=>{
+ const home=mkdtempSync(join(tmpdir(),"ac-grok-interval-")),root=join(home,"Library/Application Support/Grok Bot/sand-client-persistence");mkdirSync(root,{recursive:true});
+ const scope="sand.client.slice.account.mock.",quotaPath=join(root,filename(scope+"weekly-usage.cache")),replicaPath=join(root,filename(scope+"transcript.replicas.bot-one"));
+ writeFileSync(join(root,filename(scope+"roster.last-roster")),JSON.stringify({schemaVersion:4,value:{rows:[{id:"bot-one",name:"Example Bot"}]}}));
+ let now=1793664000000;
+ const writeQuota=(percentUsed:number)=>writeFileSync(quotaPath,JSON.stringify({schemaVersion:2,value:{selectedTeamId:null,reading:{usage:{percentUsed,nextResetMs:1794318313233,hasNonZeroIncludedLimit:true},readAtMs:now}}}));
+ const writeMessage=(content:string)=>writeFileSync(replicaPath,JSON.stringify({schemaVersion:1,value:{entries:[{kind:"message",id:"u",role:"user",content,timestampMs:now}]}}));
+ try{
+  writeQuota(5);writeMessage("First message");const adapter=new GrokAdapter(home,()=>now);expect((await adapter.collect()).quota[0].used_ratio.value).toBe(.05);
+  writeQuota(15);writeMessage("New message");now+=GROK_QUOTA_INTERVAL_MS-1;
+  const before=await adapter.collect();expect(before.quota[0].used_ratio.value).toBe(.05);expect(before.sessions[0].messages.at(-1)?.text).toBe("New message");
+  now++;expect((await adapter.collect()).quota[0].used_ratio.value).toBe(.15);
+  writeQuota(25);now+=GROK_QUOTA_INTERVAL_MS-1;expect((await adapter.collect()).quota[0].used_ratio.value).toBe(.15);
+  now++;expect((await adapter.collect()).quota[0].used_ratio.value).toBe(.25);
+ }finally{rmSync(home,{recursive:true,force:true});}
 });
 test("Grok Bot reads real-format roster/replicas without inventing runtime state or forwarding tools",async()=>{
  const home=mkdtempSync(join(tmpdir(),"ac-grok-")),root=join(home,"Library/Application Support/Grok Bot/sand-client-persistence");mkdirSync(root,{recursive:true});

@@ -94,7 +94,7 @@ static void render_schedule_list(void){
     int64_t now=current.schedules.as_of_epoch+(clock_ms>=received_ms?(clock_ms-received_ms)/1000:0);
     for(unsigned i=0;i<5;i++){
         size_t index=schedule_offset+i;hide(rows[i],showing_detail||index>=a->count);if(index>=a->count)continue;const ac_schedule_t *t=&a->tasks[index];
-        lv_label_set_text(row_title[i],t->activity&&t->thread_title[0]?t->thread_title:t->title);ellipsis(row_title[i],380);lv_obj_set_style_text_color(row_title[i],ac_color(schedule_color(t)),0);lv_obj_set_style_text_color(row_time[i],ac_color(schedule_color(t)),0);lv_obj_set_style_text_color(row_tokens[i],ac_color(schedule_color(t)),0);
+        hide(row_time[i],false);lv_label_set_text(row_title[i],t->activity&&t->thread_title[0]?t->thread_title:t->title);ellipsis(row_title[i],380);lv_obj_set_style_text_color(row_title[i],ac_color(schedule_color(t)),0);lv_obj_set_style_text_color(row_time[i],ac_color(schedule_color(t)),0);lv_obj_set_style_text_color(row_tokens[i],ac_color(schedule_color(t)),0);
         if(t->activity)lv_label_set_text_fmt(row_state[i],"%s%s · 定时对话",fresh?"":"上次：",schedule_activity(t));else lv_label_set_text_fmt(row_state[i],"%s%s · %s",fresh?"":"上次：",t->status==1?"已启用":t->status==2?"已暂停":"状态未知",t->thread_title[0]?t->thread_title:t->heartbeat?"跟进对话":"定时任务");ellipsis(row_state[i],380);
         lv_obj_set_style_text_color(row_state[i],ac_color(schedule_color(t)),0);
         char value[96];ac_schedule_countdown(value,sizeof(value),t,now,fresh);lv_label_set_text(row_time[i],value);lv_obj_set_pos(row_time[i],408,8);ellipsis(row_time[i],226);
@@ -126,10 +126,11 @@ static void render_list(void)
     home_count=ac_activity_order(a,scheduled_tasks_visible?tasks:NULL,home_items,AC_SESSION_LIMIT+AC_SCHEDULE_LIMIT);if(schedule_offset>=home_count)schedule_offset=0;
     size_t pages=(home_count+4)/5;if(!pages)pages=1;hide(schedule_page,showing_detail||pages<=1);lv_label_set_text_fmt(lv_obj_get_child(schedule_page,0),"%u/%zu ›",schedule_offset/5+1,pages);
     if(scheduled_tasks_visible&&tasks->count)lv_label_set_text_fmt(panel_title,"%s / 会话与定时",names[selected]);else lv_label_set_text_fmt(panel_title,selected==AC_AGENT_GROK?"%s / 最近 %zu 个 Bot":"%s / 最近 %zu 个会话",names[selected],a->session_count);
-    const char *headings[]={"会话 / 状态","TIME","IN / OUT","CACHE","CTX"};int colx[]={18,266,354,474,572};for(int i=0;i<5;i++){lv_label_set_text(columns[i],headings[i]);lv_obj_set_x(columns[i],colx[i]);hide(columns[i],showing_detail);}
+    bool grok=selected==AC_AGENT_GROK;
+    const char *headings[]={grok?"BOT / 状态":"会话 / 状态",grok?"最近消息":"TIME","IN / OUT","CACHE","CTX"};int colx[]={18,grok?248:266,354,474,572};for(int i=0;i<5;i++){lv_label_set_text(columns[i],headings[i]);lv_obj_set_x(columns[i],colx[i]);hide(columns[i],showing_detail||(grok&&i>=2));}
     for(size_t i=0;i<5;++i){
         size_t at=schedule_offset+i;hide(rows[i],showing_detail||at>=home_count);if(at>=home_count)continue;
-        ellipsis(row_title[i],232);ellipsis(row_state[i],230);
+        hide(row_time[i],false);ellipsis(row_title[i],232);ellipsis(row_state[i],230);
         if(home_items[at].scheduled){
             const ac_schedule_t *t=&tasks->tasks[home_items[at].index];lv_label_set_text(row_title[i],t->thread_title[0]?t->thread_title:t->title);
             if(t->activity)lv_label_set_text_fmt(row_state[i],"%s%s · 定时对话",schedules_fresh()?"":"上次：",schedule_activity(t));else lv_label_set_text_fmt(row_state[i],"%s定时 · %s",schedules_fresh()?"":"上次：",t->title);
@@ -138,6 +139,16 @@ static void render_list(void)
             hide(row_tokens[i],true);hide(row_cache[i],true);hide(row_context[i],true);hide(context_bars[i],true);lv_obj_set_style_border_color(rows[i],ac_color(0x7f6e00),0);continue;
         }
         const ac_session_t *session=&a->sessions[home_items[at].index];hide(row_tokens[i],false);hide(row_cache[i],false);hide(row_context[i],false);
+        if(grok){
+            bool fresh=transport_health==AC_OBSERVATION_FRESH&&session->health==AC_OBSERVATION_FRESH;
+            lv_label_set_text(row_title[i],session->title);ellipsis(row_title[i],210);lv_obj_set_style_text_color(row_title[i],ac_color(0xe9ffff),0);
+            lv_label_set_text_fmt(row_state[i],"%s%s",fresh?"":"上次：",ac_state_label(session->state));lv_obj_set_style_text_color(row_state[i],ac_color(fresh?state_color(session->state):0xb8faff),0);ellipsis(row_state[i],210);
+            lv_obj_set_pos(row_tokens[i],235,9);lv_obj_set_size(row_tokens[i],395,46);lv_label_set_long_mode(row_tokens[i],LV_LABEL_LONG_DOT);
+            if(session->latest_message[0])lv_label_set_text_fmt(row_tokens[i],"%s%s",session->latest_message_assistant?"Bot：":"你：",session->latest_message);else lv_label_set_text(row_tokens[i],"暂无消息");
+            lv_obj_set_style_text_color(row_tokens[i],ac_color(0xb8faff),0);lv_obj_set_style_border_color(rows[i],ac_color(0x006877),0);
+            hide(row_time[i],true);hide(row_cache[i],true);hide(row_context[i],true);hide(context_bars[i],true);continue;
+        }
+        hide(row_time[i],false);lv_label_set_long_mode(row_tokens[i],LV_LABEL_LONG_WRAP);
         lv_obj_set_pos(row_time[i],253,22);lv_obj_set_width(row_time[i],80);lv_obj_set_height(row_time[i],20);lv_obj_set_pos(row_tokens[i],342,9);lv_obj_set_width(row_tokens[i],116);lv_obj_set_height(row_tokens[i],45);
         lv_obj_set_style_text_color(row_title[i],ac_color(0xe9ffff),0);lv_obj_set_style_text_color(row_time[i],ac_color(0xb8faff),0);lv_obj_set_style_text_color(row_tokens[i],ac_color(0xe9ffff),0);
         lv_label_set_text(row_title[i],session->title);bool fresh=transport_health==AC_OBSERVATION_FRESH&&session->health==AC_OBSERVATION_FRESH;
@@ -180,7 +191,7 @@ static void render_cards(const char *completions[AC_AGENT_COUNT])
         else lv_label_set_text_fmt(card_counts[i],i==AC_AGENT_GROK?"%u 个 Bot":"%u 个本地会话",a->total);
         const ac_balance_t *balance=&a->balance;
         ac_quota_view_t quota=ac_quota_view(a->quota,AC_OBSERVATION_FRESH);
-        bool quota_old=a->quota_stale||h!=AC_OBSERVATION_FRESH;
+        bool quota_old=i==AC_AGENT_GROK?transport_health!=AC_OBSERVATION_FRESH:a->quota_stale||h!=AC_OBSERVATION_FRESH;
         bool money=balance->available;
         bool money_fresh=money && balance->health==AC_OBSERVATION_FRESH && transport_health==AC_OBSERVATION_FRESH;
         if(money) {
@@ -535,6 +546,7 @@ void ac_bootstrap_screen_detail(const ac_session_detail_t *detail)
     lv_label_set_text_fmt(detail_meta,"%s  ·  %s  ·  %zu 条公开消息",ac_state_label(s->state),s->model[0]?s->model:"模型 —",detail->message_count);
     const char *source=strstr(s->status_source,"live_writer_fd")?"任务事件 + 本机运行进程":strstr(s->status_source,"task_complete")?"任务完成事件":strstr(s->status_source,"dsh.turn/end")?"Harness 任务结束事件":"本机会话记录";
     lv_label_set_text_fmt(detail_source,"依据：%s · %.8sZ",source,strlen(s->observed_at)>=19?s->observed_at+11:"—");
+    if(selected==AC_AGENT_GROK){lv_label_set_text_fmt(detail_meta,"%s  ·  %zu 条公开消息",ac_state_label(s->state),detail->message_count);lv_label_set_text(detail_source,"Grok Bot · 最近消息");}
     lv_label_set_text(panel_title,s->title);
     uint64_t checksum=text_hash(UINT64_C(14695981039346656037),s->title);
     if(detail->truncated) checksum^=1;

@@ -4,6 +4,7 @@ import {join} from "node:path";
 import {addMessage,array,cleanPublicMessage,iso,newSession,object,redactSecrets,string,type TranscriptSource} from "./common.ts";
 
 const ROOT="Library/Application Support/Grok Bot/sand-client-persistence";
+export const GROK_QUOTA_INTERVAL_MS=10*60_000;
 /** File names are base32 encoded logical cache keys, not authentication material. */
 export function grokCacheKey(name:string):string|null {
  if(!/^[a-z2-7]+\.blob$/i.test(name)||name.length>512)return null;
@@ -39,7 +40,9 @@ export function grokCachedQuota(value:unknown):QuotaWindow[]{
 }
 export class GrokAdapter {
  readonly sources=new Map<string,TranscriptSource>();
- constructor(private home:string){}
+ private quota:QuotaWindow[]=[];
+ private quotaCheckedAt:number|null=null;
+ constructor(private home:string,private clock=()=>Date.now()){}
  async collect(){
   const root=join(this.home,ROOT);let files:string[];
   try{files=await readdir(root);}catch(error){if(object(error).code==="ENOENT")return{sessions:[],count:0,quota:[] as QuotaWindow[]};throw error;}
@@ -69,10 +72,14 @@ export class GrokAdapter {
     sessions.push(session);
    }
   }
-  let quota:QuotaWindow[]=[];
-  for(const item of keys.filter(f=>f.key.endsWith(".weekly-usage.cache"))){
-   try{const windows=grokCachedQuota(await blob(join(root,item.name),2));if(windows.length&&(!quota.length||windows[0].used_ratio.observed_at!>quota[0].used_ratio.observed_at!))quota=windows;}catch{ /* An optional cache must not discard readable Bot records. */ }
+  const now=this.clock();
+  if(this.quotaCheckedAt===null||now-this.quotaCheckedAt>=GROK_QUOTA_INTERVAL_MS){
+   this.quotaCheckedAt=now;let next:QuotaWindow[]=[];
+   for(const item of keys.filter(f=>f.key.endsWith(".weekly-usage.cache"))){
+    try{const windows=grokCachedQuota(await blob(join(root,item.name),2));if(windows.length&&(!next.length||windows[0].used_ratio.observed_at!>next[0].used_ratio.observed_at!))next=windows;}catch{ /* Optional quota does not discard readable Bot records. */ }
+   }
+   this.quota=next;
   }
-  return {sessions,count:sessions.length,quota};
+  return {sessions,count:sessions.length,quota:structuredClone(this.quota)};
  }
 }

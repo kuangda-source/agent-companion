@@ -16,7 +16,10 @@ int main(int argc,char **argv){
         cJSON *agents=cJSON_CreateArray(),*sources=cJSON_CreateArray();
         for(int i=0;i<count;++i){cJSON *a=cJSON_Duplicate(agent,true),*s=cJSON_Duplicate(source,true);cJSON_ReplaceItemInObject(a,"id",cJSON_CreateString(ids[i]));cJSON_ReplaceItemInObject(s,"id",cJSON_CreateString(ids[i]));cJSON_AddItemToArray(agents,a);cJSON_AddItemToArray(sources,s);}
         cJSON_ReplaceItemInObject(fixture,"agents",agents);cJSON_ReplaceItemInObject(statistics,"agents",sources);
+        cJSON *records=cJSON_CreateArray(),*record=cJSON_CreateObject(),*messages=cJSON_CreateArray(),*message=cJSON_CreateObject();
+        cJSON_AddStringToObject(record,"id","example-bot");cJSON_AddStringToObject(record,"title","Example Bot");cJSON_AddStringToObject(record,"agent_id","grok");cJSON_AddStringToObject(message,"role","assistant");cJSON_AddStringToObject(message,"text","Latest Bot update");cJSON_AddItemToArray(messages,message);cJSON_AddItemToObject(record,"messages",messages);cJSON_AddItemToArray(records,record);cJSON_ReplaceItemInObject(fixture,"sessions",records);
         assert(ac_device_snapshot(fixture,snapshot));assert(snapshot->agent_count==(size_t)count);for(int i=0;i<count;++i)assert(snapshot->agent_order[i]==order[i]);
+        assert(!strcmp(snapshot->agents[AC_AGENT_GROK].sessions[0].latest_message,"Latest Bot update"));assert(snapshot->agents[AC_AGENT_GROK].sessions[0].latest_message_assistant);
     }
     cJSON_ReplaceItemInObject(fixture,"agents",cJSON_CreateArray());assert(!ac_device_snapshot(fixture,snapshot));
     cJSON *duplicates=cJSON_CreateArray();cJSON_AddItemToArray(duplicates,cJSON_Duplicate(agent,true));cJSON_AddItemToArray(duplicates,cJSON_Duplicate(agent,true));cJSON_ReplaceItemInObject(fixture,"agents",duplicates);assert(!ac_device_snapshot(fixture,snapshot));

@@ -58,9 +58,12 @@ int main(int argc,char **argv)
         fixture[@"generated_at"]=[format stringFromDate:NSDate.date];
         NSMutableDictionary *grok=[codex mutableCopy];grok[@"id"]=@"grok";
         fixture[@"agents"]=[NSMutableArray arrayWithObject:grok];fixture[@"sessions"]=[NSMutableArray array];
+        NSMutableDictionary *botRecord=[@{@"id":@"bot-example",@"agent_id":@"grok",@"title":@"Example Bot",@"state":@"unknown",@"messages":@[@{@"role":@"assistant",@"text":@"Latest Bot update"}]} mutableCopy];
+        [fixture[@"sessions"] addObject:botRecord];
         statistics[@"agents"]=[NSMutableArray arrayWithObject:[@{@"id":@"grok",@"available":@NO,@"partial":@NO,@"source":@"cache: unavailable"} mutableCopy]];
         for(NSMutableDictionary *day in days)day[@"tokens"][@"grok"]=NSNull.null;
         assert(decode(fixture,&snapshot,true));assert(snapshot.agent_count==1&&snapshot.agent_order[0]==AC_AGENT_GROK);
+        assert(!strcmp(snapshot.agents[AC_AGENT_GROK].sessions[0].latest_message,"Latest Bot update"));assert(snapshot.agents[AC_AGENT_GROK].sessions[0].latest_message_assistant);
         assert(snapshot.agents[AC_AGENT_CLAUDE].state==AC_STATE_UNKNOWN);
         assert(!ac_usage_total(&snapshot.token_statistics,-1,7).available);
         fixture[@"agents"]=[NSMutableArray array];assert(!decode(fixture,&snapshot,true));
