@@ -20,8 +20,9 @@ const runtime = process.env.AGENT_COMPANION_RUNTIME ? resolve(process.env.AGENT_
 if (!mock) { await mkdir(runtime, { recursive: true, mode: 0o700 }); await chmod(runtime, 0o700); }
 const budgetAmount = Number(process.env.DEEPSEEK_BALANCE_BUDGET_CNY);
 if (process.env.DEEPSEEK_BALANCE_BUDGET_CNY && (!Number.isFinite(budgetAmount) || budgetAmount <= 0)) throw new Error("Invalid DEEPSEEK_BALANCE_BUDGET_CNY");
+const settings = new SettingsStore(mock ? undefined : `${runtime}/settings.json`);
 const quotaReader=mock||probe?undefined:new CodexQuotaReader();
-const state = new LiveState(undefined, mock ? undefined : runtime, budgetAmount > 0 ? { currency: "CNY", amount: budgetAmount } : null,{quotaRead:quotaReader?(signal)=>quotaReader.read(signal):undefined});
+const state = new LiveState(undefined, mock ? undefined : runtime, budgetAmount > 0 ? { currency: "CNY", amount: budgetAmount } : null,{selectedAgents:()=>settings.current().appearance.agent_ids,quotaRead:quotaReader?(signal)=>quotaReader.read(signal):undefined});
 if (!mock) await state.refresh();
 if (probe) {
   console.log(JSON.stringify({ at: state.current().generated_at, data_source: "live", agents: state.current().agents,
@@ -34,7 +35,6 @@ if (!mock) {
   token = crypto.randomUUID() + crypto.randomUUID();
   // Publish token only after the port has been successfully acquired.
 }
-const settings = new SettingsStore(mock ? undefined : `${runtime}/settings.json`);
 const mastra=mock?undefined:new MastraAssistantEngine(runtime);
 const assistant=mock?undefined:new Assistant(state,runtime,fetch,{engines:{chat:mastra,briefing:mastra}});
 const remote=mock?undefined:new RemoteLink(runtime,state,settings,assistant);

@@ -40,6 +40,25 @@
           "type": "boolean",
           "default": true,
           "description": "Merge scheduled entries into the display conversation list. Does not pause or change source automations."
+        },
+        "agent_ids": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "codex",
+              "claude",
+              "deepseek",
+              "grok"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "default": [
+            "codex",
+            "grok",
+            "deepseek"
+          ]
         }
       }
     },

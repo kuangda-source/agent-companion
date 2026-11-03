@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-struct Appearance: Codable, Equatable { var theme: Theme = .neon; var animations_enabled = true; var show_scheduled_tasks = true }
+struct Appearance: Codable, Equatable { var theme: Theme = .neon; var animations_enabled = true; var show_scheduled_tasks = true; var agent_ids = ["codex", "grok", "deepseek"] }
 struct DeviceSettings: Codable, Equatable {
     var brightness = 75, volume = 50, sleep_after_seconds = 300
     var transport = "auto", relay_url = ""
@@ -9,9 +9,9 @@ struct DeviceSettings: Codable, Equatable {
 }
 struct Preferences: Codable, Equatable { var schema_version = 1, revision = 0; var appearance = Appearance(); var device = DeviceSettings() }
 enum Section: String, CaseIterable, Identifiable {
-    case overview = "概览", assistant = "AI 助手", appearance = "外观", device = "屏幕", connection = "连接", integrations = "API 设置"
+    case overview = "概览", assistant = "AI 助手", appearance = "外观", agents = "Agent", device = "屏幕", connection = "连接", integrations = "API 设置"
     var id: String { rawValue }
-    var symbol: String { switch self { case .overview: return "square.grid.2x2"; case .assistant: return "sparkles"; case .appearance: return "tshirt"; case .device: return "display"; case .connection: return "wifi"; case .integrations: return "key" } }
+    var symbol: String { switch self { case .overview: return "square.grid.2x2"; case .assistant: return "sparkles"; case .appearance: return "tshirt"; case .agents: return "person.3"; case .device: return "display"; case .connection: return "wifi"; case .integrations: return "key" } }
 }
 
 struct BoardNetwork: Codable, Equatable { var state: String; var code: Int? }
@@ -314,6 +314,7 @@ struct ControlPanel: View {
                     case .assistant: AssistantPanel()
                     case .integrations: IntegrationSettingsPanel()
                     case .appearance: appearance
+                    case .agents: agentSelection
                     case .device: device
                     case .connection: ConnectionPanel()
                     }
@@ -330,16 +331,35 @@ struct ControlPanel: View {
             .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("好") { model.error = nil } } message: { Text(model.error ?? "") }
     }
     private var subtitle: String {
-        switch section { case .overview: return "本机采集、屏幕预览与设备连接"; case .assistant: return "汇总最近对话，查看项目进展与关注事项"; case .appearance: return "选择屏幕风格，设置会自动保存并同步至预览"; case .device: return "调整亮度，设置跟随 Mac 熄屏与唤醒"; case .connection: return "给屏幕配网，选择局域网或异地连接"; case .integrations: return "连接你的模型服务，按需启用余额查询" }
+        switch section { case .overview: return "本机采集、屏幕预览与设备连接"; case .assistant: return "汇总最近对话，查看项目进展与关注事项"; case .appearance: return "选择屏幕风格，设置会自动保存并同步至预览"; case .agents: return "选择 1–3 个 Agent，自动保存并同步到屏幕"; case .device: return "调整亮度，设置跟随 Mac 熄屏与唤醒"; case .connection: return "给屏幕配网，选择局域网或异地连接"; case .integrations: return "连接你的模型服务，按需启用余额查询" }
     }
     private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 18) { Text(title).font(.headline); content() }.padding(22).frame(maxWidth: .infinity, alignment: .leading).background(CompanionSurface(theme:model.theme))
     }
     private var overview: some View {
         VStack(spacing: 20) {
-            panel("本机服务") { Label(model.message, systemImage: model.online ? "checkmark.circle.fill" : "circle.dotted").foregroundStyle(model.online ? model.theme.success : model.theme.muted); Text("只读查看本机的 Codex、Claude Code 和 DeepSeek Harness 会话；没有记录的来源会显示为未发现。").foregroundStyle(model.theme.muted) }
+            panel("本机服务") { Label(model.message, systemImage: model.online ? "checkmark.circle.fill" : "circle.dotted").foregroundStyle(model.online ? model.theme.success : model.theme.muted); Text("只读查看本机的 Codex、Grok Bot、DeepSeek Harness 和 Claude Code 记录；没有记录的来源会显示为未发现。").foregroundStyle(model.theme.muted) }
             panel("开始使用") { Text("先打开屏幕预览体验界面；连接硬件时，在“连接”中配网。AI 助手与余额查询可在“API 设置”中按需开启。").foregroundStyle(model.theme.muted); Button("配置 API") { model.selected = .integrations } }
             panel("桌面屏幕") { Label(model.connectionStatus?.data_fresh == true ? (model.connectionStatus?.active_transport == "wifi" ? "已通过局域网直连" : "已通过云中转连接") : "等待设备连接", systemImage: "display"); Text("同一 Wi-Fi 可直连 Mac，异地可用自建中转；支持跟随主屏亮度与熄屏。").foregroundStyle(model.theme.muted); Button("配置连接") { model.selected = .connection } }
+        }
+    }
+    private var agentSelection: some View {
+        panel("监控的 Agent · \(model.preferences.appearance.agent_ids.count)/3") {
+            ForEach(["codex", "grok", "deepseek", "claude"], id: \.self) { id in
+                let enabled = model.preferences.appearance.agent_ids.contains(id)
+                Toggle(isOn: Binding(get: { enabled }, set: { on in
+                    var ids = model.preferences.appearance.agent_ids
+                    if on { ids.append(id) } else { ids.removeAll { $0 == id } }
+                    model.update(["appearance": ["agent_ids": ids]])
+                })) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(["codex": "Codex", "grok": "Grok", "deepseek": "DeepSeek", "claude": "Claude Code"][id] ?? id)
+                        Text(["codex": "本机会话、用量与订阅额度", "grok": "Bot 名称与公开消息；实时工作状态暂不可读，额度为上次缓存；桌宠素材待接入", "deepseek": "Harness 会话与用量，余额可按需配置", "claude": "本机 Claude Code 记录，有真实记录后显示"][id] ?? "").font(.caption).foregroundStyle(model.theme.muted)
+                    }
+                }.disabled(!model.online || model.saving || (enabled ? model.preferences.appearance.agent_ids.count <= 1 : model.preferences.appearance.agent_ids.count >= 3))
+                    .accessibilityIdentifier("agent-" + id)
+            }
+            Text("至少保留 1 个，最多选择 3 个。所选 Agent 会显示在小屏、Token 统计中，并纳入 AI 助手整理。取消选择不会停止原软件的任务。").font(.caption).foregroundStyle(model.theme.muted)
         }
     }
     private var appearance: some View {

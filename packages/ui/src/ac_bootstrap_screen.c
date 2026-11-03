@@ -10,11 +10,11 @@
 #include <time.h>
 #include <math.h>
 
-static const uint32_t colors[AC_AGENT_COUNT] = {0x00ffff, 0xff00ff, 0x009dff};
-static const char *names[AC_AGENT_COUNT] = {"CODEX", "CLAUDE", "DEEPSEEK"};
-static lv_obj_t *cards[3], *card_status[3], *card_counts[3], *card_quota[3];
-static lv_obj_t *quota_tracks[3], *quota_fills[3];
-static ac_pet_widget_t *pets[3];
+static const uint32_t colors[AC_AGENT_COUNT] = {0x00ffff, 0xff00ff, 0x009dff, 0xffa84a};
+static const char *names[AC_AGENT_COUNT] = {"CODEX", "CLAUDE", "DEEPSEEK", "GROK"};
+static lv_obj_t *cards[AC_AGENT_COUNT], *card_status[AC_AGENT_COUNT], *card_counts[AC_AGENT_COUNT], *card_quota[AC_AGENT_COUNT];
+static lv_obj_t *quota_tracks[AC_AGENT_COUNT], *quota_fills[AC_AGENT_COUNT], *pet_slots[AC_AGENT_COUNT], *card_names[AC_AGENT_COUNT];
+static ac_pet_widget_t *pets[AC_AGENT_COUNT];
 static lv_obj_t *header_status, *header_clock, *panel_title, *notice, *panel;
 static lv_obj_t *header_usage[2];
 static lv_obj_t *theme_overlay, *theme_dialog, *theme_choices[AC_THEME_COUNT], *theme_choice_status[AC_THEME_COUNT];
@@ -29,7 +29,7 @@ static bool scheduled_tasks_visible=true;
 static bool showing_schedules;static unsigned schedule_offset;
 static AC_UI_LARGE_BSS ac_activity_item_t home_items[AC_SESSION_LIMIT+AC_SCHEDULE_LIMIT];static size_t home_count;
 static lv_obj_t *empty, *detail_body, *back, *detail_meta, *detail_source;
-static int agent_ids[3] = {0,1,2}, row_ids[5] = {0,1,2,3,4};
+static int agent_ids[AC_AGENT_COUNT] = {0,1,2,3}, row_ids[5] = {0,1,2,3,4};
 static AC_UI_LARGE_BSS ac_snapshot_t current;
 static bool has_snapshot, mock_mode, showing_detail, showing_statistics, continuous;
 static bool animations_enabled=true;
@@ -40,7 +40,7 @@ static uint64_t received_ms, clock_ms, toast_until, header_updated_ms;
 static uint64_t glow_updated_ms;
 static ac_observation_health_t transport_health = AC_OBSERVATION_DISCONNECTED;
 static ac_detail_request_fn detail_request;
-uint32_t ac_bootstrap_screen_pet_frame_updates(unsigned agent){return agent<3?ac_pet_widget_frame_updates(pets[agent]):0;}
+uint32_t ac_bootstrap_screen_pet_frame_updates(unsigned agent){return agent<AC_AGENT_COUNT?ac_pet_widget_frame_updates(pets[agent]):0;}
 
 static lv_obj_t *box(lv_obj_t *parent, int x, int y, int w, int h, uint32_t color)
 {
@@ -125,7 +125,7 @@ static void render_list(void)
     const ac_agent_t *a=&current.agents[selected];const ac_agent_schedule_t *tasks=&current.schedules.agents[selected];
     home_count=ac_activity_order(a,scheduled_tasks_visible?tasks:NULL,home_items,AC_SESSION_LIMIT+AC_SCHEDULE_LIMIT);if(schedule_offset>=home_count)schedule_offset=0;
     size_t pages=(home_count+4)/5;if(!pages)pages=1;hide(schedule_page,showing_detail||pages<=1);lv_label_set_text_fmt(lv_obj_get_child(schedule_page,0),"%u/%zu ›",schedule_offset/5+1,pages);
-    if(scheduled_tasks_visible&&tasks->count)lv_label_set_text_fmt(panel_title,"%s / 会话与定时",names[selected]);else lv_label_set_text_fmt(panel_title,"%s / 最近 %zu 个会话",names[selected],a->session_count);
+    if(scheduled_tasks_visible&&tasks->count)lv_label_set_text_fmt(panel_title,"%s / 会话与定时",names[selected]);else lv_label_set_text_fmt(panel_title,selected==AC_AGENT_GROK?"%s / 最近 %zu 个 Bot":"%s / 最近 %zu 个会话",names[selected],a->session_count);
     const char *headings[]={"会话 / 状态","TIME","IN / OUT","CACHE","CTX"};int colx[]={18,266,354,474,572};for(int i=0;i<5;i++){lv_label_set_text(columns[i],headings[i]);lv_obj_set_x(columns[i],colx[i]);hide(columns[i],showing_detail);}
     for(size_t i=0;i<5;++i){
         size_t at=schedule_offset+i;hide(rows[i],showing_detail||at>=home_count);if(at>=home_count)continue;
@@ -149,9 +149,27 @@ static void render_list(void)
     hide(empty,showing_detail||home_count>0);if(!home_count)lv_label_set_text(empty,selected==AC_AGENT_CLAUDE?"等待 Claude Code 会话\n\n当前没有可读取的本地 Code 会话记录。":"暂无可发现的本地会话\n\nGateway 会自动刷新可用记录。");
     hide(back,!showing_detail);hide(detail_body,!showing_detail);hide(detail_meta,!showing_detail);hide(detail_source,!showing_detail);
 }
-static void render_cards(const char *completions[3])
+static bool agent_visible(int id) {
+    for(size_t i=0;i<current.agent_count;++i)if(current.agent_order[i]==(ac_agent_id_t)id)return true;
+    return false;
+}
+static void layout_cards(void) {
+    size_t count=current.agent_count; if(count<1||count>AC_VISIBLE_AGENT_LIMIT)return;
+    int height=(442-8*((int)count-1))/(int)count;
+    for(int i=0;i<AC_AGENT_COUNT;++i)hide(cards[i],!agent_visible(i));
+    for(size_t slot=0;slot<count;++slot){
+        int id=current.agent_order[slot],center=(height-112)/2;
+        lv_obj_set_pos(cards[id],12,60+(height+8)*(int)slot);lv_obj_set_height(cards[id],height);
+        lv_obj_set_y(pet_slots[id],center);lv_obj_set_y(card_names[id],center);
+        lv_obj_set_y(card_status[id],center+39);lv_obj_set_y(card_counts[id],center+66);lv_obj_set_y(card_quota[id],center+93);
+        lv_obj_set_height(quota_tracks[id],height-34);
+    }
+}
+static void render_cards(const char *completions[AC_AGENT_COUNT])
 {
-    for(int i=0;i<3;++i) {
+    layout_cards();
+    for(int i=0;i<AC_AGENT_COUNT;++i) {
+        if(!agent_visible(i))continue;
         const ac_agent_t *a=&current.agents[i];
         ac_observation_health_t h=transport_health==AC_OBSERVATION_FRESH?a->health:transport_health;
         const char *status=h==AC_OBSERVATION_STALE?"观测已过期":h==AC_OBSERVATION_DISCONNECTED?"Gateway 未连接":ac_state_label(a->state);
@@ -159,7 +177,7 @@ static void render_cards(const char *completions[3])
         if(!has_snapshot) lv_label_set_text(card_counts[i],"会话 —");
         else if(!a->total) lv_label_set_text(card_counts[i],i==AC_AGENT_CLAUDE?"未发现 Code 记录":"未发现会话");
         else if(a->running || a->waiting) lv_label_set_text_fmt(card_counts[i],"%u 运行 · %u 等待",a->running,a->waiting);
-        else lv_label_set_text_fmt(card_counts[i],"%u 个本地会话",a->total);
+        else lv_label_set_text_fmt(card_counts[i],i==AC_AGENT_GROK?"%u 个 Bot":"%u 个本地会话",a->total);
         const ac_balance_t *balance=&a->balance;
         ac_quota_view_t quota=ac_quota_view(a->quota,AC_OBSERVATION_FRESH);
         bool quota_old=a->quota_stale||h!=AC_OBSERVATION_FRESH;
@@ -183,11 +201,12 @@ static void render_cards(const char *completions[3])
         } else lv_label_set_text(card_quota[i],i==AC_AGENT_DEEPSEEK?"余额 —":"额度 —");
         uint32_t text_color=money?(money_fresh?(balance->total>0?0x00ffad:0xff3973):0x70d6e2):quota.available?quota_color:0x70d6e2;
         lv_obj_set_style_text_color(card_quota[i],ac_color(text_color),0);
-        int fill_height=quota.available?(int)(quota.remaining_ratio*108+0.5):0;
+        int track_height=lv_obj_get_height(quota_tracks[i]);
+        int fill_height=quota.available?(int)(quota.remaining_ratio*track_height+0.5):0;
         if(quota.available && quota.remaining_ratio>0 && fill_height==0) fill_height=1;
         hide(quota_fills[i],fill_height==0);
         lv_obj_set_size(quota_fills[i],6,fill_height>0?fill_height:1);
-        lv_obj_set_pos(quota_fills[i],0,108-fill_height);
+        lv_obj_set_pos(quota_fills[i],0,track_height-fill_height);
         lv_obj_set_style_bg_color(quota_fills[i],ac_color(quota_color),0);
         lv_obj_set_style_border_color(cards[i],ac_color(i==selected?colors[i]:0x006877),0);
         lv_obj_set_style_border_width(cards[i],1,0);
@@ -204,9 +223,10 @@ static void select_agent(int agent)
 {
     bool changed=selected!=agent || showing_detail;
     if(selected!=agent)schedule_offset=0;
+    if(!agent_visible(agent))return;
     selected=agent; showing_detail=false; selected_session[0]=0;
     if(detail_request) detail_request("");
-    printf("%s selected_agent=%s\n",mock_mode?"MOCK":"LIVE",agent==0?"codex":agent==1?"claude":"deepseek"); fflush(stdout);
+    printf("%s selected_agent=%s\n",mock_mode?"MOCK":"LIVE",names[agent]); fflush(stdout);
     if(showing_statistics) ac_usage_panel_filter(agent); else render_list();
     render_cards(NULL);
     if(changed && !showing_statistics) ac_neon_reveal(panel,1,0);
@@ -347,7 +367,7 @@ static void theme_preview_draw(lv_event_t *e)
     lv_draw_rect(layer,&d,&area);
     if(id==AC_THEME_COMIC) ac_theme_dots(layer,&area,32);
     static const uint32_t accents[AC_THEME_COUNT][3]={{0x00ffff,0xff00ff,0x009dff},{0x3366ff,0xff3333,0xffcc00},{0x7965db,0xa39cbd,0xb9bdcb}};
-    for(int i=0;i<3;++i) {
+    for(int i=0;i<AC_AGENT_COUNT;++i) {
         lv_draw_rect_dsc_init(&d);d.bg_opa=255;d.bg_color=lv_color_hex(accents[id][i]);d.radius=id==AC_THEME_NEUMORPHISM?4:0;
         lv_area_t bar={area.x1+18,area.y1+16+i*16,area.x2-18-i*16,area.y1+22+i*16};lv_draw_rect(layer,&d,&bar);
     }
@@ -400,7 +420,8 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
     scheduled_tasks_visible=true;showing_schedules=false;schedule_offset=0;
     mock_mode=mock; detail_request=request_detail; selected=0; showing_detail=false; showing_statistics=false; has_snapshot=false;
     transport_health=AC_OBSERVATION_DISCONNECTED; memset(&current,0,sizeof(current));
-    for(int i=0;i<3;++i) { current.agents[i].state=AC_STATE_UNKNOWN; current.agents[i].quality=AC_QUALITY_UNKNOWN; }
+    for(int i=0;i<AC_AGENT_COUNT;++i) { current.agents[i].state=AC_STATE_UNKNOWN; current.agents[i].quality=AC_QUALITY_UNKNOWN; }
+    current.agent_count=3;current.agent_order[0]=AC_AGENT_CODEX;current.agent_order[1]=AC_AGENT_GROK;current.agent_order[2]=AC_AGENT_DEEPSEEK;
     lv_obj_t *screen=lv_screen_active(); lv_obj_set_style_bg_color(screen,ac_color(0x0a0a0f),0); lv_obj_remove_flag(screen,LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_text_font(screen,ac_theme_font(16),0); ac_neon_grid(screen);
     lv_obj_t *header=box(screen,12,10,1000,42,0x0c1019);
@@ -416,14 +437,15 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
     lv_obj_add_event_cb(theme_button,shirt_draw,LV_EVENT_DRAW_MAIN_END,NULL);
     header_clock=text(header,650,13,"--:--:--",0xb8faff);lv_obj_set_style_text_font(header_clock,ac_theme_font(13),0);
     header_status=text(header,780,12,mock?"MOCK · 连接中":"LIVE · 连接中",0xffe600);
-    for(int i=0;i<3;++i) {
+    for(int i=0;i<AC_AGENT_COUNT;++i) {
         cards[i]=box(screen,12,60+i*150,300,142,0x0c1019); lv_obj_add_flag(cards[i],LV_OBJ_FLAG_CLICKABLE);
         ac_neon_interactive(cards[i],colors[i]);
         ac_neon_scanlines(cards[i]);
         lv_obj_add_event_cb(cards[i],agent_clicked,LV_EVENT_CLICKED,&agent_ids[i]);
         lv_obj_t *slot=box(cards[i],8,15,112,112,0x0c1019); ac_neon_flat(slot);
+        pet_slots[i]=slot;
         pets[i]=ac_pet_widget_create(slot,use_assets?ac_pet_assets_for_agent((ac_agent_id_t)i):NULL);
-        lv_obj_t *name=text(cards[i],128,15,names[i],colors[i]); lv_obj_set_style_text_font(name,ac_theme_font(20),0); lv_obj_set_style_text_letter_space(name,ac_theme_tracking(),0);
+        lv_obj_t *name=text(cards[i],128,15,names[i],colors[i]);card_names[i]=name; lv_obj_set_style_text_font(name,ac_theme_font(20),0); lv_obj_set_style_text_letter_space(name,ac_theme_tracking(),0);
         card_status[i]=text(cards[i],128,54,"连接中",0xb8faff);
         lv_obj_add_event_cb(card_status[i],status_bubble,LV_EVENT_DRAW_MAIN_BEGIN,NULL);lv_obj_add_event_cb(card_status[i],status_bubble,LV_EVENT_REFR_EXT_DRAW_SIZE,NULL);lv_obj_refresh_ext_draw_size(card_status[i]);
         card_counts[i]=text(cards[i],128,81,"会话 —",0xb8faff); ellipsis(card_counts[i],146);
@@ -479,12 +501,14 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
 }
 void ac_bootstrap_screen_apply(const ac_snapshot_t *snapshot,uint64_t now)
 {
-    const char *events[3]={NULL,NULL,NULL};
+    const char *events[AC_AGENT_COUNT]={0};
     if(has_snapshot && continuous && transport_health==AC_OBSERVATION_FRESH && now-received_ms<6000 && snapshot->seq>current.seq && snapshot->seq-current.seq<=2)
-        for(int i=0;i<3;++i) events[i]=ac_completion_transition(&current.agents[i],&snapshot->agents[i]);
+        for(int i=0;i<AC_AGENT_COUNT;++i) events[i]=ac_completion_transition(&current.agents[i],&snapshot->agents[i]);
     // Event pointers belong to the incoming snapshot and are copied synchronously by PetWidget.
     if(transport_health!=AC_OBSERVATION_FRESH) { printf("UI transport=fresh at_ms=%llu\n",(unsigned long long)now); fflush(stdout); hide(notice,true); toast_until=0; }
     current=*snapshot; has_snapshot=true; continuous=true; clock_ms=now; received_ms=now; transport_health=AC_OBSERVATION_FRESH;
+    if(!current.agent_count){current.agent_count=3;for(int i=0;i<3;++i)current.agent_order[i]=(ac_agent_id_t)i;}
+    if(!agent_visible(selected))select_agent(current.agent_order[0]);
     render_cards(events);
     render_header_usage();
     if(showing_statistics) ac_usage_panel_update(&current.token_statistics);
@@ -545,7 +569,7 @@ void ac_bootstrap_screen_tick(uint64_t now)
         transport_health=health; render_cards(NULL); if(!showing_detail) render_list();
         if(has_snapshot && health!=AC_OBSERVATION_FRESH) show_notice("连接中断 · 保留最后记录，状态动作已降级",2200);
     }
-    for(int i=0;i<3;++i) ac_pet_widget_tick(pets[i],now);
+    for(int i=0;i<AC_AGENT_COUNT;++i) if(agent_visible(i))ac_pet_widget_tick(pets[i],now);
     if(animations_enabled && ac_theme_current()==AC_THEME_NEON && now-glow_updated_ms>=80) {
         glow_updated_ms=now;
         lv_opa_t glow=(lv_opa_t)(45+25*(sin((double)(now%2800)*6.283185307179586/2800)+1)/2);
@@ -564,7 +588,7 @@ void ac_bootstrap_screen_destroy(void)
 {
     ac_bootstrap_screen_close_theme_picker();lv_group_delete(theme_group);theme_group=NULL;
     ac_assistant_panel_destroy();
-    for(int i=0;i<3;++i) ac_pet_widget_destroy(pets[i]);
+    for(int i=0;i<AC_AGENT_COUNT;++i) ac_pet_widget_destroy(pets[i]);
     lv_obj_clean(lv_screen_active());
     theme_overlay=NULL;
 }

@@ -54,6 +54,18 @@ int main(int argc,char **argv)
         assert(!snapshot.agents[0].sessions[0].input.available && !snapshot.agents[0].sessions[0].context_ratio.available);
         fixture[@"generated_at"]=@"2001-01-01T00:00:00Z"; assert(!decode(fixture,&snapshot,true));
         assert(!ac_gateway_decode("{broken",7,&snapshot,true));
+        /* One selected Grok is a distinct identity, not the old Claude slot. */
+        fixture[@"generated_at"]=[format stringFromDate:NSDate.date];
+        NSMutableDictionary *grok=[codex mutableCopy];grok[@"id"]=@"grok";
+        fixture[@"agents"]=[NSMutableArray arrayWithObject:grok];fixture[@"sessions"]=[NSMutableArray array];
+        statistics[@"agents"]=[NSMutableArray arrayWithObject:[@{@"id":@"grok",@"available":@NO,@"partial":@NO,@"source":@"cache: unavailable"} mutableCopy]];
+        for(NSMutableDictionary *day in days)day[@"tokens"][@"grok"]=NSNull.null;
+        assert(decode(fixture,&snapshot,true));assert(snapshot.agent_count==1&&snapshot.agent_order[0]==AC_AGENT_GROK);
+        assert(snapshot.agents[AC_AGENT_CLAUDE].state==AC_STATE_UNKNOWN);
+        assert(!ac_usage_total(&snapshot.token_statistics,-1,7).available);
+        fixture[@"agents"]=[NSMutableArray array];assert(!decode(fixture,&snapshot,true));
+        fixture[@"agents"]=[NSMutableArray arrayWithObjects:grok,grok,nil];assert(!decode(fixture,&snapshot,true));
+        fixture[@"agents"]=[NSMutableArray arrayWithObjects:grok,grok,grok,grok,nil];assert(!decode(fixture,&snapshot,true));
         NSMutableDictionary *assistant=[@{@"schema_version":@1,@"data_source":@"mock",@"revision":@1,@"status":@"ready",@"model":@"fixture",
             @"messages":@[@{@"id":@"message-1",@"role":@"assistant",@"kind":@"briefing",@"text":@"项目摘要",@"created_at":[format stringFromDate:NSDate.date],@"source_ids":@[]}]} mutableCopy];
         ac_assistant_feed_t feed;

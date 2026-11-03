@@ -220,7 +220,7 @@ ac_pet_widget_t *ac_pet_widget_create(lv_obj_t *parent, const ac_pet_assets_t *a
 }
 void ac_pet_widget_set_view(ac_pet_widget_t *pet, const ac_pet_view_t *view)
 {
-    static const uint32_t accents[AC_AGENT_COUNT] = {0x00ffff, 0xff00ff, 0x009dff};
+    static const uint32_t accents[AC_AGENT_COUNT] = {0x00ffff, 0xff00ff, 0x009dff, 0xffa84a};
     uint32_t color=accents[view->agent_id < AC_AGENT_COUNT ? view->agent_id : 0];
     if(color!=pet->color || view->selected!=pet->selected) pet->stage_dirty=true;
     pet->color=color; pet->selected=view->selected;

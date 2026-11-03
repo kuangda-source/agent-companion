@@ -11,7 +11,7 @@ import type { LanLink } from "./lan-link.ts";
 
 /** Environment bootstrap only: no real collector, account, model, or audio. */
 export function createMockGateway(port = 8736, animate = false, phase = 0, settings = new SettingsStore()) {
-  const collector = new MockState(animate,phase);
+  const collector = new MockState(animate,phase,()=>settings.current().appearance.agent_ids);
   const database = new Database(":memory:");
   const sqlite = database.query<{ ok: number }, []>("SELECT 1 AS ok").get()?.ok === 1;
   const server = Bun.serve<{ ready: boolean }>({

@@ -12,7 +12,7 @@ describe("desktop and desired device settings", () => {
       for(const [old,replacement] of [["paper","comic"],["midnight","neumorphism"]] as const) {
         const file=join(dir,"settings.json"), value=new SettingsStore().current();value.revision=7;value.device.brightness=38;value.appearance.animations_enabled=false;
         writeFileSync(file,JSON.stringify({...value,appearance:{...value.appearance,theme:old}}));
-        const result=new SettingsStore(file).current();expect(result.appearance).toEqual({theme:replacement,animations_enabled:false,show_scheduled_tasks:true});expect(result.device.brightness).toBe(38);expect(result.revision).toBe(8);
+        const result=new SettingsStore(file).current();expect(result.appearance).toEqual({theme:replacement,animations_enabled:false,show_scheduled_tasks:true,agent_ids:["codex","grok","deepseek"]});expect(result.device.brightness).toBe(38);expect(result.revision).toBe(8);
         expect(new SettingsStore(file).current()).toEqual(result);
       }
     } finally {rmSync(dir,{recursive:true});}
@@ -25,7 +25,7 @@ describe("desktop and desired device settings", () => {
       a.update({ device: { brightness: 35 } });
       a.update({ appearance: { animations_enabled: false } });
       const restored = new SettingsStore(file).current();
-      expect(restored.appearance).toEqual({ theme: "comic", animations_enabled: false, show_scheduled_tasks: true });
+      expect(restored.appearance).toEqual({ theme: "comic", animations_enabled: false, show_scheduled_tasks: true,agent_ids:["codex","grok","deepseek"] });
       expect(restored.device.brightness).toBe(35); expect(restored.revision).toBe(3);
       expect(statSync(file).mode & 0o777).toBe(0o600);
       expect(a.deviceStatus()).toMatchObject({ connected: false, pending: true, applied_settings: null });

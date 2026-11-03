@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
-static const uint32_t colors[3]={0x00ffff,0xff00ff,0x009dff};
-static const char *names[4]={"总体","CODEX","CLAUDE","DEEPSEEK"};
-static lv_obj_t *root,*tabs[4],*ranges[2],*summary,*subtitle,*day_detail,*footnote,*empty;
-static lv_obj_t *bars[AC_USAGE_DAYS],*segments[AC_USAGE_DAYS][3],*dates[AC_USAGE_DAYS],*axis[3];
-static int filters[4]={-1,0,1,2},periods[2]={7,30},indices[AC_USAGE_DAYS];
+static const uint32_t colors[AC_AGENT_COUNT]={0x00ffff,0xff00ff,0x009dff,0xffa84a};
+static const char *names[AC_AGENT_COUNT+1]={"总体","CODEX","CLAUDE","DEEPSEEK","GROK"};
+static lv_obj_t *root,*tabs[AC_AGENT_COUNT+1],*ranges[2],*summary,*subtitle,*day_detail,*footnote,*empty;
+static lv_obj_t *bars[AC_USAGE_DAYS],*segments[AC_USAGE_DAYS][AC_AGENT_COUNT],*dates[AC_USAGE_DAYS],*axis[3];
+static int filters[AC_AGENT_COUNT+1]={-1,0,1,2,3},periods[2]={7,30},indices[AC_USAGE_DAYS];
 static int filter=-1,selected_day=-1;
 static unsigned period=7;
 static ac_usage_stats_t current;
@@ -33,19 +33,24 @@ static void compact(char *out,size_t n,double value)
 static double day_total(size_t index)
 {
     double total=0;
-    for(int a=0;a<3;++a) if((filter<0 || filter==a) && current.days[index].tokens[a].available) total+=current.days[index].tokens[a].value;
+    for(int a=0;a<AC_AGENT_COUNT;++a) if((filter<0 || filter==a) && current.days[index].tokens[a].available) total+=current.days[index].tokens[a].value;
     return total;
 }
 static void render(void)
 {
+    if(filter>=0){bool present=false;for(size_t i=0;i<current.agent_count;++i)if(current.agent_order[i]==(ac_agent_id_t)filter)present=true;if(!present)filter=-1;}
     ac_metric_t total=ac_usage_total(&current,filter,period); char amount[32]; compact(amount,sizeof(amount),total.value);
     lv_label_set_text_fmt(summary,"近 %u 天  /  %s  /  %s%s TOKENS",period,names[filter+1],total.available?amount:"—",total.available && total.estimated?" *":"");
-    int available=0; for(int a=0;a<3;++a) if(current.available[a]) ++available;
+    int available=0; for(int a=0;a<AC_AGENT_COUNT;++a) if(current.available[a]) ++available;
     if(current.loading) lv_label_set_text(subtitle,"正在导入历史记录，已有汇总会持续更新…");
     else if(!total.available) lv_label_set_text(subtitle,"该来源没有可读取的用量记录");
-    else if(filter<0) lv_label_set_text_fmt(subtitle,"可用来源 %d/3   ·   输入（含缓存）+ 输出   ·   含今天",available);
+    else if(filter<0) lv_label_set_text_fmt(subtitle,"可用来源 %d/%zu   ·   输入（含缓存）+ 输出   ·   含今天",available,current.agent_count);
     else lv_label_set_text(subtitle,"按请求发生日期汇总   ·   输入（含缓存）+ 输出   ·   含今天");
-    for(int i=0;i<4;++i) {
+    hide(tabs[0],false);int tab_width=656/(int)(current.agent_count+1);
+    lv_obj_set_x(tabs[0],16);lv_obj_set_width(tabs[0],tab_width-8);
+    for(int i=1;i<AC_AGENT_COUNT+1;++i)hide(tabs[i],true);
+    for(size_t i=0;i<current.agent_count;++i){int tab=current.agent_order[i]+1;hide(tabs[tab],false);lv_obj_set_x(tabs[tab],16+tab_width*((int)i+1));lv_obj_set_width(tabs[tab],tab_width-8);}
+    for(int i=0;i<AC_AGENT_COUNT+1;++i) {
         bool active=filters[i]==filter; lv_obj_set_style_bg_color(tabs[i],ac_color(active?0x00343e:0x0c1019),0);
         lv_obj_set_style_border_color(tabs[i],ac_color(active?(i?colors[i-1]:0x00ffff):0x006877),0);
         lv_obj_set_style_border_opa(tabs[i],active?LV_OPA_COVER:LV_OPA_40,0);
@@ -70,7 +75,7 @@ static void render(void)
         lv_obj_set_style_border_width(bars[i],(int)i==selected_day?1:0,0);
         lv_obj_set_style_border_color(bars[i],ac_color(0xb8faff),0);
         int bottom=166;
-        for(int a=0;a<3;++a) {
+        for(int a=0;a<AC_AGENT_COUNT;++a) {
             ac_metric_t v=current.days[i].tokens[a]; bool show=(filter<0 || filter==a) && v.available && v.value>0;
             int height=show?(int)(v.value/scale*158+0.5):0; if(show && height<1) height=1;
             if(height>bottom) height=bottom;
@@ -86,12 +91,9 @@ static void render(void)
     else if(current.loading && peak==0) lv_label_set_text(empty,"正在读取历史用量…");
     if(selected_day>=0 && (size_t)selected_day>=start && (size_t)selected_day<current.day_count && total.available) {
         const ac_usage_day_t *day=&current.days[selected_day]; double value=day_total((size_t)selected_day);
-        char one[24],two[24],three[24];
-        for(int a=0;a<3;++a) {
-            char *dest=a==0?one:a==1?two:three;
-            if(day->tokens[a].available) compact(dest,24,day->tokens[a].value); else snprintf(dest,24,"—");
-        }
-        if(filter<0) lv_label_set_text_fmt(day_detail,"%s   Codex %s  ·  Claude %s  ·  DeepSeek %s",day->date,one,two,three);
+        char detail[256];int length=snprintf(detail,sizeof(detail),"%s",day->date);
+        for(size_t slot=0;slot<current.agent_count;++slot){int a=current.agent_order[slot];char amount[24];if(day->tokens[a].available)compact(amount,sizeof(amount),day->tokens[a].value);else snprintf(amount,sizeof(amount),"—");length+=snprintf(detail+length,sizeof(detail)-(size_t)length,"  %s %s",names[a+1],amount);}
+        if(filter<0)lv_label_set_text(day_detail,detail);
         else lv_label_set_text_fmt(day_detail,"%s   %s：%.0f TOKENS",day->date,names[filter+1],value);
     } else lv_label_set_text(day_detail,"点击柱形查看当日消耗；柱高按当前筛选自动缩放。");
     const char *zone=strcmp(current.timezone,"Asia/Shanghai")==0?"北京时间":current.timezone;
@@ -122,7 +124,7 @@ void ac_usage_panel_create(lv_obj_t *parent,void (*on_close)(void))
     for(int i=0;i<2;++i) { ranges[i]=box(root,364+i*105,9,94,32,0x0c1019); lv_obj_add_flag(ranges[i],LV_OBJ_FLAG_CLICKABLE); ac_neon_interactive(ranges[i],AC_NEON_CYAN); text(ranges[i],15,5,i?"近 30 天":"近 7 天",0xb8faff); lv_obj_add_event_cb(ranges[i],range_clicked,LV_EVENT_CLICKED,&periods[i]); }
     lv_obj_t *back=box(root,594,9,78,32,0x002832); text(back,9,5,"‹ 返回",0x00ffff); lv_obj_add_flag(back,LV_OBJ_FLAG_CLICKABLE); lv_obj_add_event_cb(back,back_clicked,LV_EVENT_CLICKED,NULL);
     ac_neon_interactive(back,AC_NEON_CYAN);
-    for(int i=0;i<4;++i) {
+    for(int i=0;i<AC_AGENT_COUNT+1;++i) {
         tabs[i]=box(root,16+i*166,52,158,32,0x0c1019); lv_obj_add_flag(tabs[i],LV_OBJ_FLAG_CLICKABLE);
         ac_neon_interactive(tabs[i],i?colors[i-1]:AC_NEON_CYAN);
         text(tabs[i],i?43:58,5,names[i],i?colors[i-1]:0xe9ffff); lv_obj_add_event_cb(tabs[i],tab_clicked,LV_EVENT_CLICKED,&filters[i]);
@@ -133,7 +135,7 @@ void ac_usage_panel_create(lv_obj_t *parent,void (*on_close)(void))
     for(int i=0;i<AC_USAGE_DAYS;++i) {
         indices[i]=i; bars[i]=box(root,52,183,18,168,0x0c1019); lv_obj_set_style_bg_opa(bars[i],LV_OPA_TRANSP,0); lv_obj_set_style_border_width(bars[i],0,0);
         lv_obj_add_flag(bars[i],LV_OBJ_FLAG_CLICKABLE); lv_obj_add_event_cb(bars[i],day_clicked,LV_EVENT_CLICKED,&indices[i]);
-        for(int a=0;a<3;++a) { segments[i][a]=box(bars[i],0,0,16,1,colors[a]); lv_obj_set_style_border_width(segments[i][a],0,0); lv_obj_set_style_radius(segments[i][a],2,0); }
+        for(int a=0;a<AC_AGENT_COUNT;++a) { segments[i][a]=box(bars[i],0,0,16,1,colors[a]); lv_obj_set_style_border_width(segments[i][a],0,0); lv_obj_set_style_radius(segments[i][a],2,0); }
         dates[i]=text(root,52,357,"",0x70d6e2);
     }
     empty=text(root,164,242,"",0xb8faff);
@@ -145,5 +147,5 @@ void ac_usage_panel_create(lv_obj_t *parent,void (*on_close)(void))
 }
 void ac_usage_panel_open(const ac_usage_stats_t *stats,unsigned days) { current=*stats; period=days==30?30:7; filter=-1; selected_day=-1; animate_bars=true; render(); hide(root,false); lv_obj_move_foreground(root); ac_neon_reveal(root,1,0); }
 void ac_usage_panel_update(const ac_usage_stats_t *stats) { current=*stats; render(); }
-void ac_usage_panel_filter(int agent) { if(agent>=-1 && agent<3) { filter=agent; selected_day=-1; animate_bars=true; render(); ac_neon_reveal(summary,1,0); } }
+void ac_usage_panel_filter(int agent) { if(agent>=-1 && agent<AC_AGENT_COUNT) { filter=agent; selected_day=-1; animate_bars=true; render(); ac_neon_reveal(summary,1,0); } }
 void ac_usage_panel_hide(void) { hide(root,true); }

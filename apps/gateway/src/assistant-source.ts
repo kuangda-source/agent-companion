@@ -2,6 +2,7 @@ import { open, stat, realpath } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import type { Session } from "../../../packages/protocol/src/index.ts";
+import {grokPublicEntries} from "./adapters/grok.ts";
 import { array, cleanPublicMessage, iso, object, string, type ObjectValue, type TranscriptSource } from "./adapters/common.ts";
 
 export const digest=(value:string)=>createHash("sha256").update(value).digest("hex");
@@ -41,6 +42,17 @@ export async function readAssistantSource(session:Session,source:TranscriptSourc
   const canonical=source.project_dir?await realpath(source.project_dir).catch(()=>resolve(source.project_dir!)):session.id;
   const projectId="project_"+digest(canonical).slice(0,20);
   if(previous&&previous.inode===meta.ino&&previous.modified===meta.mtimeMs&&previous.offset===previous.size&&(previous.stored_size??(!source.compressed?previous.size:null))===meta.size)return{cursor:previous,evidence:[],project_id:projectId,partial:previous.partial};
+  if(source.format==="grok-replica"){
+    if(meta.size>4*BLOCK)throw new Error("grok_cache_too_large");
+    const data=object(await Bun.file(source.path).json());if(data.schemaVersion!==1)throw new Error("grok_cache_schema_unsupported");
+    const entries=grokPublicEntries(data.value),evidence:Evidence[]=[];let available=charBudget;
+    for(const entry of [...entries].reverse()){
+      if(available<=0||evidence.length>=32)break;
+      const text=[...entry.text].slice(0,available).join("");available-=[...text].length;
+      evidence.unshift({id:"ref_"+digest(session.id+":"+entry.id+":"+digest(entry.text)).slice(0,24),session_id:session.id,project_id:projectId,title:session.title,role:entry.role,timestamp:entry.timestamp,text});
+    }
+    return {cursor:{inode:meta.ino,offset:meta.size,size:meta.size,modified:meta.mtimeMs,partial:true},evidence,project_id:projectId,partial:true};
+  }
   let full:Buffer|undefined;
   if(source.compressed) {
     if(meta.size>8*BLOCK) throw new Error("compressed_source_too_large");

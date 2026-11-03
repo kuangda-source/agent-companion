@@ -1,17 +1,18 @@
 import { DisplaySync } from "./display-sync.ts";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import {AGENT_IDS,DEFAULT_AGENT_IDS,type AgentId} from "../../../packages/protocol/src/index.ts";
 
 export const themeIds = ["neon", "comic", "neumorphism"] as const;
 export type ThemeId = typeof themeIds[number];
 export interface Settings {
   schema_version: 1;
   revision: number;
-  appearance: { theme: ThemeId; animations_enabled: boolean; show_scheduled_tasks:boolean };
+  appearance: { theme: ThemeId; animations_enabled: boolean; show_scheduled_tasks:boolean; agent_ids:AgentId[] };
   device: { brightness: number; volume: number; sleep_after_seconds: number; transport: "auto" | "usb" | "wifi" | "relay"; relay_url: string; follow_host_brightness:boolean; follow_host_sleep:boolean };
 }
 const initial = (): Settings => ({ schema_version: 1, revision: 0,
-  appearance: { theme: "neon", animations_enabled: true, show_scheduled_tasks:true },
+  appearance: { theme: "neon", animations_enabled: true, show_scheduled_tasks:true, agent_ids:[...DEFAULT_AGENT_IDS] },
   device: { brightness: 75, volume: 50, sleep_after_seconds: 300, transport: "auto", relay_url: "", follow_host_brightness:true, follow_host_sleep:true } });
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_settings");
@@ -28,7 +29,11 @@ function merged(current: Settings, input: unknown): Settings {
   if (!Object.keys(patch).length) throw new Error("empty_settings");
   const result = structuredClone(current);
   if (patch.appearance !== undefined) {
-    const a = record(patch.appearance); keys(a, ["theme", "animations_enabled", "show_scheduled_tasks"]);
+    const a = record(patch.appearance); keys(a, ["theme", "animations_enabled", "show_scheduled_tasks", "agent_ids"]);
+    if(a.agent_ids!==undefined){
+      if(!Array.isArray(a.agent_ids)||a.agent_ids.length<1||a.agent_ids.length>3||new Set(a.agent_ids).size!==a.agent_ids.length||a.agent_ids.some(id=>!AGENT_IDS.includes(id)))throw new Error("invalid_agent_selection");
+      result.appearance.agent_ids=[...a.agent_ids];
+    }
     if (a.theme !== undefined) {
       if (!themeIds.includes(a.theme as ThemeId)) throw new Error("invalid_theme");
       result.appearance.theme = a.theme as ThemeId;

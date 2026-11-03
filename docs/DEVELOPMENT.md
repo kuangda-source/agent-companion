@@ -1,5 +1,24 @@
 # 开发说明
 
+## Grok Bot and Agent selection
+
+The four provider IDs remain distinct (`codex`, `claude`, `deepseek`, `grok`). Saved `appearance.agent_ids` is an ordered set of 1–3 IDs. Defaults replace the old Claude position with Grok while retaining the Claude adapter. Snapshots, numeric statistics and assistant source selection project to this set; native clients use the incoming ID order rather than assuming fixed slots.
+
+Grok Bot 0.78.1 was observed using `~/Library/Application Support/Grok Bot/sand-client-persistence`. The adapter decodes base32 cache file names and reads only roster v4 and public transcript replica v1 blobs, at most 4 MiB each. It never reads cookies, secrets or daemon credentials, calls Grok's cloud API, injects into the app or controls its Bots. Source files remain read-only. Future cache schema changes fail closed and retain stale/unknown observations.
+
+Public text is `message` entries with user/assistant roles, or `send-message` with `message.type=text`. Tools, widgets, rich-text payloads, events and streaming fragments are excluded. A successfully read replica is fresh source evidence, while runtime state remains unknown. Weekly quota cache v2 uses its original readAtMs and is always labeled last-known; team-scoped or invalid readings are excluded. No completion, running state, token values or elapsed work duration is inferred from file times or the last reply. Assistant evidence marks these cached excerpts partial.
+
+Grok art binds to `grok-v1` in `examples/config.example.json`. A missing manifest resolves to the built-in placeholder; install the future approved pack under `assets/pets/grok-v1/` using the existing seven-state contract and build pipeline.
+
+Run `./scripts/dev check` and `./scripts/dev mac`. With device dependencies installed, verify the actual cJSON decoder on macOS with:
+
+```sh
+clang -std=c11 -D_POSIX_C_SOURCE=200809L -Iapps/device/main -Ipackages/client-core/include -I.deps/esp-idf-v5.5.5/components/json/cJSON tests/test_device_agents.c apps/device/main/ac_device_decode.c .deps/esp-idf-v5.5.5/components/json/cJSON/cJSON.c -lm -o .cache/test-device-agents
+.cache/test-device-agents examples/state_mock.json
+```
+
+`PORT=8876 ./scripts/dev gateway --mock` provides isolated fixtures for `./scripts/dev smoke-sim`. Screenshots and real-source acceptance records stay private and are not release assets.
+
 ## 源码入口
 
 - `apps/macos/`：SwiftUI 控制端，管理自身 Gateway/预览子进程，修改配置并采样主屏亮度与熄屏。

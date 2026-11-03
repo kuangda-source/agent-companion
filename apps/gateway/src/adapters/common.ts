@@ -5,7 +5,7 @@ import type { AgentId, Capability, Measured, Message, Quality, Session, Usage } 
 
 export type ObjectValue = Record<string, unknown>;
 /** Internal source pointer; never part of the public monitoring snapshot. */
-export interface TranscriptSource { path: string; project_dir: string | null; compressed?: boolean }
+export interface TranscriptSource { path: string; project_dir: string | null; compressed?: boolean; format?:"grok-replica" }
 export const object = (v: unknown): ObjectValue => typeof v === "object" && v !== null && !Array.isArray(v) ? v as ObjectValue : {};
 export const array = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const string = (v: unknown): string | null => typeof v === "string" ? v : null;

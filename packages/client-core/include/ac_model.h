@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 enum { AC_SESSION_LIMIT = 5, AC_MESSAGE_LIMIT = 12, AC_ID_CAPACITY = 160, AC_USAGE_DAYS = 30 };
-enum { AC_SCHEDULE_LIMIT = 32 };
+enum { AC_SCHEDULE_LIMIT = 32, AC_VISIBLE_AGENT_LIMIT = 3 };
 enum { AC_SCHEDULE_PLANNED,AC_SCHEDULE_RUNNING,AC_SCHEDULE_WAITING,AC_SCHEDULE_ERROR,AC_SCHEDULE_UNCONFIRMED };
 typedef struct {char title[256],session_id[AC_ID_CAPACITY],thread_title[256];unsigned status,activity;bool heartbeat;int64_t next_epoch,last_epoch;} ac_schedule_t;
 typedef struct {bool available,fresh;size_t count;ac_schedule_t tasks[AC_SCHEDULE_LIMIT];} ac_agent_schedule_t;
@@ -24,6 +24,7 @@ typedef struct { char date[11]; ac_metric_t tokens[AC_AGENT_COUNT]; } ac_usage_d
 typedef struct {
     bool loading, failed, partial;
     bool available[AC_AGENT_COUNT], agent_partial[AC_AGENT_COUNT];
+    size_t agent_count; ac_agent_id_t agent_order[AC_VISIBLE_AGENT_LIMIT];
     char timezone[64], observed_at[32];
     size_t day_count;
     ac_usage_day_t days[AC_USAGE_DAYS];
@@ -74,6 +75,7 @@ typedef struct {
     bool mock;
     char generated_at[32];
     ac_agent_t agents[AC_AGENT_COUNT];
+    size_t agent_count; ac_agent_id_t agent_order[AC_VISIBLE_AGENT_LIMIT];
     ac_usage_stats_t token_statistics;
     ac_schedules_t schedules;
 } ac_snapshot_t;

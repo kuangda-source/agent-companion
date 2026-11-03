@@ -43,6 +43,7 @@ ac_metric_t ac_usage_total(const ac_usage_stats_t *stats,int agent,unsigned days
     size_t start=stats->day_count>days?stats->day_count-days:0;
     for(int a=0;a<AC_AGENT_COUNT;++a) {
         if(agent>=0 && a!=agent) continue;
+        if(stats->agent_count){bool included=false;for(size_t i=0;i<stats->agent_count;++i)if(stats->agent_order[i]==(ac_agent_id_t)a)included=true;if(!included)continue;}
         if(!stats->available[a]) { total.estimated=true; continue; }
         total.available=true;
         total.estimated |= stats->agent_partial[a] || stats->loading || stats->failed;

@@ -31,7 +31,8 @@
     "pet_assets": {
       "codex": "crosspet-gpt",
       "claude": "crosspet-claude",
-      "deepseek": "crosspet-deepseek"
+      "deepseek": "crosspet-deepseek",
+      "grok": "grok-v1"
     },
     "pet_assets_note": "演示绑定用户提供的 clea 素材包，角色许可见各自 license.md；缺失时使用内置占位。",
     "buttons": [

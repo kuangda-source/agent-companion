@@ -6,7 +6,7 @@ import { children, eventUUID, iso, object, string, tokens, type ObjectValue } fr
 
 export interface UsagePoint { id: string; at: string; input: number; output: number }
 export interface Counter { input: number | null; output: number | null }
-const sourceNames: Record<AgentId, string> = { codex: "codex.token_count cumulative deltas", claude: "claude.code message.id usage", deepseek: "dsh.assistant/message data.usage" };
+const sourceNames: Record<AgentId, string> = { codex: "codex.token_count cumulative deltas", claude: "claude.code message.id usage", deepseek: "dsh.assistant/message data.usage", grok:"grok.bot_cache: token usage unavailable" };
 /** Cache reads are already included in Codex input_tokens. Never add them a second time. */
 export function codexUsage(row: ObjectValue, previous: Counter): UsagePoint | null {
   const p = object(row.payload), info = object(p.info), total = object(info.total_token_usage), last = object(info.last_token_usage);
@@ -50,7 +50,7 @@ export function emptyStatistics(now = new Date().toISOString(), timezone = Intl.
   return { status: "loading", timezone, generated_at: null,
     note: "正在读取本机历史用量；近 7/30 天均含今天，按本地自然日统计。",
     agents: AGENT_IDS.map(id => ({ id, available: false, partial: false, source: sourceNames[id] })),
-    days: calendarDays(now, timezone).map(date => ({ date, tokens: { codex: null, claude: null, deepseek: null } })),
+    days: calendarDays(now, timezone).map(date => ({ date, tokens: { codex: null, claude: null, deepseek: null, grok:null } })),
   };
 }
 interface Cursor { path: string; agent: AgentId; ino: number; size: number; mtime: number; offset: number; input: number | null; output: number | null; partial: number }
@@ -176,7 +176,7 @@ export class UsageHistory {
       const day = value.days.find(d => d.date === `${p("year")}-${p("month")}-${p("day")}`);
       if (day) day.tokens[row.agent] = (day.tokens[row.agent] ?? 0) + row.input + row.output;
     }
-    value.status = loading ? "loading" : failed || partial.size || available.size < 3 ? "partial" : "ready";
+    value.status = loading ? "loading" : failed || partial.size || available.size < AGENT_IDS.length ? "partial" : "ready";
     value.generated_at = rows.length || !loading ? now : null;
     value.note = "本机可读记录，含缓存输入 + 输出；近 7/30 天含今天，按本地自然日汇总。缺失来源不按零计。";
     return value;

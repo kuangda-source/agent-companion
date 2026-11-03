@@ -1,13 +1,14 @@
-import { AGENT_IDS, type Session, type Snapshot, type State } from "../../../packages/protocol/src/index.ts";
+import { AGENT_IDS, DEFAULT_AGENT_IDS, type AgentId, type Session, type Snapshot, type State } from "../../../packages/protocol/src/index.ts";
 import { eventUUID, measured, newSession } from "./adapters/common.ts";
 import { summarize, type Collector } from "./state.ts";
+import {selectedSnapshot} from "./agent-selection.ts";
 import { emptyStatistics } from "./usage-history.ts";
 
 /** Synthetic records stay in an explicitly labelled mode and use the live protocol. */
 export class MockState implements Collector {
   private value: Snapshot;
   private started: number;
-  constructor(private animate = false, private phase = 0) { this.started=Date.now()-phase*1000; this.value = this.make(phase, 1); }
+  constructor(private animate = false, private phase = 0, private selectedAgents:()=>AgentId[]=()=>DEFAULT_AGENT_IDS) { this.started=Date.now()-phase*1000; this.value = this.make(phase, 1); }
   private make(seconds: number, seq: number): Snapshot {
     const at = new Date().toISOString(), phase = Math.floor(seconds) % 24;
     const stateAt = (p: number): State => p < 4 ? "running" : p < 7 ? "waiting_user" : p < 10 ? "error" : p < 14 ? "running" : p < 17 ? "completed" : p < 20 ? "idle" : p < 22 ? "unknown" : "disconnected";
@@ -35,12 +36,12 @@ export class MockState implements Collector {
     const statistics = emptyStatistics(at);
     statistics.status = "ready"; statistics.generated_at = at; statistics.note = "MOCK 每日 Token 统计，非真实账户消耗";
     for (const a of statistics.agents) { a.available = true; a.source = "mock.daily_usage"; }
-    statistics.days.forEach((d,i) => { d.tokens = { codex: (i % 7 + 1) * 420000, claude: (i % 5 + 1) * 190000, deepseek: (i % 9 + 1) * 160000 }; });
+    statistics.days.forEach((d,i) => { d.tokens = { codex: (i % 7 + 1) * 420000, claude: (i % 5 + 1) * 190000, deepseek: (i % 9 + 1) * 160000, grok:(i%4+1)*100000 }; });
     return { schema_version: 1, data_source: "mock", seq, generated_at: at, sessions, token_statistics: statistics,
       agents: AGENT_IDS.map((id,index) => ({ ...summarize(id, sessions.filter(s => s.agent_id === id), 5, at), note: "MOCK 场景演示，非真实 Agent 记录",
-        quota:[{window_minutes:10080,used_ratio:measured([0.2,0.5,0.8][index],"mock.quota",at),resets_at:new Date(Date.now()+7*86400_000).toISOString()}] })) };
+        quota:[{window_minutes:10080,used_ratio:measured([0.2,0.5,0.8,0.3][index],"mock.quota",at),resets_at:new Date(Date.now()+7*86400_000).toISOString()}] })) };
   }
-  current() { return this.value; }
-  detail(id: string) { return this.value.sessions.find(s => s.id === id); }
+  current() { return selectedSnapshot(this.value,this.selectedAgents()); }
+  detail(id: string) { return this.current().sessions.find(s => s.id === id); }
   async refresh() { this.value = this.make(this.animate ? (Date.now() - this.started) / 1000 : this.phase, this.value.seq + 1); return this.value; }
 }

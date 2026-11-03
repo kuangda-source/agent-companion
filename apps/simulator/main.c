@@ -119,6 +119,7 @@ int main(int argc, char **argv)
             if(strcmp(agent,"codex")==0) smoke_usage_filter=0;
             else if(strcmp(agent,"claude")==0) smoke_usage_filter=1;
             else if(strcmp(agent,"deepseek")==0) smoke_usage_filter=2;
+            else if(strcmp(agent,"grok")==0) smoke_usage_filter=3;
             else if(strcmp(agent,"all")!=0) return 2;
         }
         else if(strcmp(argv[i], "--smoke-usage-switch") == 0) smoke_usage_switch=true;
@@ -135,6 +136,7 @@ int main(int argc, char **argv)
             if(strcmp(agent,"codex")==0) smoke_agent=0;
             else if(strcmp(agent,"claude")==0) smoke_agent=1;
             else if(strcmp(agent,"deepseek")==0) smoke_agent=2;
+            else if(strcmp(agent,"grok")==0) smoke_agent=3;
             else return 2;
         }
         else if(strcmp(argv[i], "--gateway") == 0 && i+1<argc) gateway=argv[++i];
@@ -210,7 +212,7 @@ int main(int argc, char **argv)
             SDL_Event click={0}; click.type=down?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
             click.button.button=SDL_BUTTON_LEFT; click.button.state=down?SDL_PRESSED:SDL_RELEASED;
             if(frames<140) { click.button.x=smoke_usage==7?400:545; click.button.y=30; }
-            else if(frames<180) { click.button.x=420+(smoke_usage_filter+1)*166; click.button.y=128; }
+            else if(frames<180) { int order[]={0,3,2},slot=-1;for(int i=0;i<3;++i)if(order[i]==smoke_usage_filter)slot=i;click.button.x=420+(slot+1)*166; click.button.y=128; }
             else if(frames<220) { click.button.x=smoke_usage==7?835:720; click.button.y=84; }
             else if(frames<260) { click.button.x=944; click.button.y=360; }
             else { click.button.x=955; click.button.y=84; }
@@ -222,7 +224,7 @@ int main(int argc, char **argv)
             click.button.button = SDL_BUTTON_LEFT;
             click.button.state = frames == 8 ? SDL_PRESSED : SDL_RELEASED;
             /* Hit the pet's foreground platform, exercising event pass-through. */
-            click.button.x = 75; click.button.y = 180+150*smoke_agent;
+            int order[]={0,3,2},slot=-1;for(int i=0;i<3;++i)if(order[i]==smoke_agent)slot=i;click.button.x = 75; click.button.y = 180+150*slot;
             SDL_PushEvent(&click);
         }
         if(smoke_detail && (frames==120 || frames==124)) {

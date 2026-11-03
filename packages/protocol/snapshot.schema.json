@@ -35,7 +35,7 @@
       "items": {
         "$ref": "#/$defs/agent"
       },
-      "minItems": 3,
+      "minItems": 1,
       "maxItems": 3,
       "allOf": [
         {
@@ -46,7 +46,7 @@
               }
             }
           },
-          "minContains": 1,
+          "minContains": 0,
           "maxContains": 1
         },
         {
@@ -57,7 +57,7 @@
               }
             }
           },
-          "minContains": 1,
+          "minContains": 0,
           "maxContains": 1
         },
         {
@@ -68,7 +68,18 @@
               }
             }
           },
-          "minContains": 1,
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "id": {
+                "const": "grok"
+              }
+            }
+          },
+          "minContains": 0,
           "maxContains": 1
         }
       ]
@@ -120,7 +131,8 @@
       "enum": [
         "codex",
         "claude",
-        "deepseek"
+        "deepseek",
+        "grok"
       ]
     },
     "count": {
@@ -800,7 +812,7 @@
         },
         "agents": {
           "type": "array",
-          "minItems": 3,
+          "minItems": 1,
           "maxItems": 3,
           "items": {
             "type": "object",
@@ -835,7 +847,7 @@
                   }
                 }
               },
-              "minContains": 1,
+              "minContains": 0,
               "maxContains": 1
             },
             {
@@ -846,7 +858,7 @@
                   }
                 }
               },
-              "minContains": 1,
+              "minContains": 0,
               "maxContains": 1
             },
             {
@@ -857,7 +869,18 @@
                   }
                 }
               },
-              "minContains": 1,
+              "minContains": 0,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "properties": {
+                  "id": {
+                    "const": "grok"
+                  }
+                }
+              },
+              "minContains": 0,
               "maxContains": 1
             }
           ]
@@ -879,11 +902,7 @@
               },
               "tokens": {
                 "type": "object",
-                "required": [
-                  "codex",
-                  "claude",
-                  "deepseek"
-                ],
+                "required": [],
                 "properties": {
                   "codex": {
                     "anyOf": [
@@ -920,9 +939,22 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "grok": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
-                "additionalProperties": false
+                "additionalProperties": false,
+                "minProperties": 1
               }
             },
             "additionalProperties": false
@@ -976,7 +1008,8 @@
                 "enum": [
                   "codex",
                   "claude",
-                  "deepseek"
+                  "deepseek",
+                  "grok"
                 ]
               },
               "quality": {
@@ -1020,7 +1053,8 @@
                 "enum": [
                   "codex",
                   "claude",
-                  "deepseek"
+                  "deepseek",
+                  "grok"
                 ]
               },
               "title": {

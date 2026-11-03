@@ -13,7 +13,7 @@ static int choice(const cJSON *o,const char *const *values,size_t n,int fallback
 static int state(const cJSON *v){static const char *const a[]={"running","waiting_user","idle","completed","error","unknown","disconnected"};return choice(v,a,7,AC_STATE_UNKNOWN);}
 static int quality(const cJSON *v){static const char *const a[]={"confirmed","estimated","unavailable","unknown"};return choice(v,a,4,AC_QUALITY_UNKNOWN);}
 static int health(const cJSON *v){static const char *const a[]={"fresh","stale","disconnected","unknown"};return choice(v,a,4,AC_OBSERVATION_UNKNOWN);}
-static int agent(const cJSON *v){static const char *const a[]={"codex","claude","deepseek"};return choice(v,a,3,-1);}
+static int agent(const cJSON *v){static const char *const a[]={"codex","claude","deepseek","grok"};return choice(v,a,AC_AGENT_COUNT,-1);}
 static ac_metric_t metric(const cJSON *o){int q=quality(get(o,"quality"));double n=num(get(o,"value"));return(ac_metric_t){.value=n>=0?n:0,.available=n>=0&&(q==AC_QUALITY_CONFIRMED||q==AC_QUALITY_ESTIMATED),.estimated=q==AC_QUALITY_ESTIMATED};}
 static time_t timestamp(const cJSON *o){
     const char *s=str(o);int y,m,d,h,mi,se;if(strlen(s)<20||s[strlen(s)-1]!='Z'||sscanf(s,"%d-%d-%dT%d:%d:%d",&y,&m,&d,&h,&mi,&se)!=6||y<1970||y>2100||m<1||m>12||h<0||h>23||mi<0||mi>59||se<0||se>59)return 0;
@@ -44,26 +44,27 @@ static void balance(ac_balance_t *d,const cJSON *o){
 }
 static bool statistics(ac_usage_stats_t *d,const cJSON *o){
     static const char *const statuses[]={"loading","ready","partial","failed"};int status=choice(get(o,"status"),statuses,4,-1);
-    const cJSON *as=get(o,"agents"),*days=get(o,"days"),*v;if(status<0||!cJSON_IsArray(as)||cJSON_GetArraySize(as)!=3||!cJSON_IsArray(days)||cJSON_GetArraySize(days)!=30)return false;
+    const cJSON *as=get(o,"agents"),*days=get(o,"days"),*v;if(status<0||!cJSON_IsArray(as)||(cJSON_GetArraySize(as)<1||cJSON_GetArraySize(as)>AC_VISIBLE_AGENT_LIMIT)||!cJSON_IsArray(days)||cJSON_GetArraySize(days)!=30)return false;
     d->loading=status==0;d->partial=status==2;d->failed=status==3;text(d->timezone,sizeof(d->timezone),get(o,"timezone"));text(d->observed_at,sizeof(d->observed_at),get(o,"generated_at"));unsigned seen=0;
-    cJSON_ArrayForEach(v,as){int i=agent(get(v,"id"));if(i<0||(seen&(1u<<i))||!cJSON_IsBool(get(v,"available"))||!cJSON_IsBool(get(v,"partial")))return false;seen|=1u<<i;d->available[i]=cJSON_IsTrue(get(v,"available"));d->agent_partial[i]=cJSON_IsTrue(get(v,"partial"));}
+    cJSON_ArrayForEach(v,as){int i=agent(get(v,"id"));if(i<0||(seen&(1u<<i))||!cJSON_IsBool(get(v,"available"))||!cJSON_IsBool(get(v,"partial")))return false;seen|=1u<<i;d->agent_order[d->agent_count++]=(ac_agent_id_t)i;d->available[i]=cJSON_IsTrue(get(v,"available"));d->agent_partial[i]=cJSON_IsTrue(get(v,"partial"));}
     char previous[11]="";cJSON_ArrayForEach(v,days){const char *date=str(get(v,"date"));if(strlen(date)!=10||strcmp(date,previous)<=0)return false;ac_usage_day_t *day=&d->days[d->day_count++];text(day->date,sizeof(day->date),get(v,"date"));memcpy(previous,day->date,11);
-        const cJSON *counts=get(v,"tokens");static const char *const ids[]={"codex","claude","deepseek"};for(int i=0;i<3;++i){const cJSON *n=get(counts,ids[i]);if(cJSON_IsNull(n))continue;if(!whole(n,0,9007199254740991.0))return false;day->tokens[i]=(ac_metric_t){.value=num(n),.available=d->available[i],.estimated=d->agent_partial[i]};}}
+        const cJSON *counts=get(v,"tokens");static const char *const ids[]={"codex","claude","deepseek","grok"};for(int i=0;i<AC_AGENT_COUNT;++i){const cJSON *n=get(counts,ids[i]);if(!n||cJSON_IsNull(n))continue;if(!whole(n,0,9007199254740991.0))return false;day->tokens[i]=(ac_metric_t){.value=num(n),.available=d->available[i],.estimated=d->agent_partial[i]};}}
     return true;
 }
 bool ac_device_snapshot_checked(const cJSON *s,ac_snapshot_t *d,ac_decode_info_t *info){
     const cJSON *as=get(s,"agents"),*ss=get(s,"sessions"),*v;time_t at=timestamp(get(s,"generated_at"));
     if(info)*info=(ac_decode_info_t){.reason="snapshot_shape",.source_age_seconds=at?(int64_t)difftime(time(NULL),at):0};
-    if(num(get(s,"schema_version"))!=1||strcmp(str(get(s,"data_source")),"live")||!whole(get(s,"seq"),1,9007199254740991.0)||!cJSON_IsArray(as)||cJSON_GetArraySize(as)!=3||!cJSON_IsArray(ss)||cJSON_GetArraySize(ss)>15)return false;
+    if(num(get(s,"schema_version"))!=1||strcmp(str(get(s,"data_source")),"live")||!whole(get(s,"seq"),1,9007199254740991.0)||!cJSON_IsArray(as)||(cJSON_GetArraySize(as)<1||cJSON_GetArraySize(as)>AC_VISIBLE_AGENT_LIMIT)||!cJSON_IsArray(ss)||cJSON_GetArraySize(ss)>15)return false;
     if(info)info->reason="source_time";if(!at||fabs(difftime(time(NULL),at))>10)return false;
     memset(d,0,sizeof(*d));d->seq=(uint64_t)num(get(s,"seq"));text(d->generated_at,sizeof(d->generated_at),get(s,"generated_at"));if(info)info->reason="token_statistics";if(!statistics(&d->token_statistics,get(s,"token_statistics")))return false;unsigned seen=0;
-    cJSON_ArrayForEach(v,as){if(info)info->reason="agent_identity";int i=agent(get(v,"id"));if(i<0||(seen&(1u<<i)))return false;seen|=1u<<i;ac_agent_t *a=&d->agents[i];
+    for(int i=0;i<AC_AGENT_COUNT;++i){d->agents[i].state=AC_STATE_UNKNOWN;d->agents[i].quality=AC_QUALITY_UNKNOWN;}
+    cJSON_ArrayForEach(v,as){if(info)info->reason="agent_identity";int i=agent(get(v,"id"));if(i<0||(seen&(1u<<i)))return false;seen|=1u<<i;d->agent_order[d->agent_count++]=(ac_agent_id_t)i;ac_agent_t *a=&d->agents[i];
         if(info)info->reason="agent_counts";
         if(!whole(get(v,"session_count"),0,1000000)||!whole(get(v,"running_count"),0,1000000)||!whole(get(v,"waiting_count"),0,1000000))return false;
         a->state=state(get(v,"state"));a->quality=quality(get(v,"status_quality"));a->health=health(get(v,"observation_health"));a->total=num(get(v,"session_count"));a->running=num(get(v,"running_count"));a->waiting=num(get(v,"waiting_count"));text(a->note,sizeof(a->note),get(v,"note"));balance(&a->balance,get(v,"balance"));
         const cJSON *q;cJSON_ArrayForEach(q,get(v,"quota")){ac_metric_t used=metric(get(q,"used_ratio"));const cJSON *mins=get(q,"window_minutes");if(!used.available||used.value>1||!whole(mins,1,1000000))continue;if(!a->quota.available||used.value>a->quota.value||(used.value==a->quota.value&&num(mins)<a->quota_minutes)){a->quota=used;a->quota_minutes=num(mins);a->quota_stale=!strcmp(str(get(q,"health")),"stale");}}}
     if(info)info->reason="session_identity";
-    cJSON_ArrayForEach(v,ss){int i=agent(get(v,"agent_id"));if(i<0||!str(get(v,"id"))[0]||!str(get(v,"title"))[0])return false;ac_agent_t *a=&d->agents[i];if(a->session_count<5)session(&a->sessions[a->session_count++],v);}
+    cJSON_ArrayForEach(v,ss){int i=agent(get(v,"agent_id"));if(i<0||!(seen&(1u<<i))||!str(get(v,"id"))[0]||!str(get(v,"title"))[0])return false;ac_agent_t *a=&d->agents[i];if(a->session_count<5)session(&a->sessions[a->session_count++],v);}
     const cJSON *scheduled=get(s,"scheduled_tasks"),*entry;
     if(cJSON_IsObject(scheduled)&&num(get(scheduled,"as_of_epoch"))>=1700000000&&num(get(scheduled,"as_of_epoch"))<=4102444800)d->schedules.as_of_epoch=(int64_t)num(get(scheduled,"as_of_epoch"));
     cJSON_ArrayForEach(entry,get(scheduled,"sources")){int i=agent(get(entry,"agent_id"));if(i>=0){d->schedules.agents[i].available=!strcmp(str(get(entry,"quality")),"confirmed");d->schedules.agents[i].fresh=!strcmp(str(get(scheduled,"status")),"ready");}}

@@ -22,6 +22,7 @@ typedef enum {
     AC_AGENT_CODEX = 0,
     AC_AGENT_CLAUDE,
     AC_AGENT_DEEPSEEK,
+    AC_AGENT_GROK,
     AC_AGENT_COUNT
 } ac_agent_id_t;
 

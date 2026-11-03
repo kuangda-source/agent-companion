@@ -1,5 +1,6 @@
-export const AGENT_IDS = ["codex", "claude", "deepseek"] as const;
+export const AGENT_IDS = ["codex", "claude", "deepseek", "grok"] as const;
 export type AgentId = typeof AGENT_IDS[number];
+export const DEFAULT_AGENT_IDS: AgentId[] = ["codex", "grok", "deepseek"];
 export type Quality = "confirmed" | "estimated" | "unavailable" | "unknown";
 export type State = "running" | "waiting_user" | "idle" | "completed" | "error" | "unknown" | "disconnected";
 export type Health = "fresh" | "stale" | "disconnected" | "unknown";

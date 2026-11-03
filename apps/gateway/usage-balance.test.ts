@@ -71,7 +71,7 @@ test("daily ledger includes archived sessions, handles local midnight, deduplica
     history = new UsageHistory(dir, cache, "Asia/Shanghai"); await history.refresh(now);
     let stats = history.current();
     expect(stats.days.at(-2)?.tokens.codex).toBe(110);
-    expect(stats.days.at(-1)?.tokens).toEqual({ codex: 55, claude: null, deepseek: 130 });
+    expect(stats.days.at(-1)?.tokens).toEqual({ codex: 55, claude: null, deepseek: 130, grok:null });
     expect(stats.status).toBe("partial"); expect(stats.agents.find(a => a.id === "claude")?.available).toBe(false);
     const third = JSON.stringify(codexRow("2026-10-30T01:00:00Z", 200, 20));
     await appendFile(path, third.slice(0, -1)); await history.refresh("2026-10-30T10:01:00Z");

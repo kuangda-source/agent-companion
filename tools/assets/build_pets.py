@@ -23,8 +23,8 @@ registry = []
 reports = []
 total_pixels = 0
 
-for agent in ["codex", "claude", "deepseek"]:
-    asset_id = BINDINGS[agent]
+for agent in ["codex", "claude", "deepseek", "grok"]:
+    asset_id = BINDINGS.get(agent, "grok-placeholder")
     source = ROOT / "assets/pets" / asset_id
     manifest = source / "pet.json"
     if not manifest.exists():
@@ -108,7 +108,7 @@ for agent in ["codex", "claude", "deepseek"]:
                     "unique_frames": len(names), "pixel_payload_bytes": pixels})
 
 if total_pixels > 8 * 1024 * 1024:
-    raise ValueError("three-pet pixel budget exceeded")
+    raise ValueError("pet pixel budget exceeded")
 lines.append("const ac_pet_assets_t *ac_pet_assets_for_agent(ac_agent_id_t agent) {")
 lines.append("static const ac_pet_assets_t *const packs[AC_AGENT_COUNT]={" + ",".join(registry) + "};")
 lines.append("return agent >= 0 && agent < AC_AGENT_COUNT ? packs[agent] : NULL; }")

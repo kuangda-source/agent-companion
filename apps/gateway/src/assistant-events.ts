@@ -13,7 +13,7 @@ export interface ObserverPublication {text:string;source_ids:string[];operation_
 export function selectAssistantSessions(collector:Collector,config:ObserverConfig,now=Date.now()):Session[]{
   const sessions=(collector.sessions?.()??collector.current().sessions).filter(s=>s.observation_health==="fresh"&&s.last_activity_at&&now-Date.parse(s.last_activity_at)<config.recent_days*86400_000)
     .sort((a,b)=>(b.last_activity_at??"").localeCompare(a.last_activity_at??"")),selected:Session[]=[];
-  if(config.max_sessions>=3)for(const agent of ["codex","claude","deepseek"] as const){const s=sessions.find(s=>s.agent_id===agent);if(s)selected.push(s);}
+  if(config.max_sessions>=3)for(const agent of ["codex","grok","deepseek","claude"] as const){const s=sessions.find(s=>s.agent_id===agent);if(s&&selected.length<config.max_sessions)selected.push(s);}
   for(const s of sessions)if(selected.length<config.max_sessions&&!selected.some(x=>x.id===s.id))selected.push(s);
   return selected;
 }

@@ -82,15 +82,15 @@ static bool statistics_decode(ac_usage_stats_t *dest,id value)
 {
     NSDictionary *s=obj(value); NSArray *agents=arr(s[@"agents"]), *days=arr(s[@"days"]);
     int status=index_of(s[@"status"],@[@"loading",@"ready",@"partial",@"failed"],-1);
-    if(status<0 || agents.count!=AC_AGENT_COUNT || days.count!=AC_USAGE_DAYS) return false;
+    if(status<0 || (agents.count<1 || agents.count>AC_VISIBLE_AGENT_LIMIT) || days.count!=AC_USAGE_DAYS) return false;
     dest->loading=status==0; dest->partial=status==2; dest->failed=status==3;
     copy_text(dest->timezone,sizeof(dest->timezone),s[@"timezone"]);
     copy_text(dest->observed_at,sizeof(dest->observed_at),s[@"generated_at"]);
-    NSArray *ids=@[@"codex",@"claude",@"deepseek"]; unsigned seen=0;
+    NSArray *ids=@[@"codex",@"claude",@"deepseek",@"grok"]; unsigned seen=0;
     for(id v in agents) {
         NSDictionary *a=obj(v); int i=index_of(a[@"id"],ids,-1);
         if(i<0 || (seen & (1u<<i)) || ![a[@"available"] isKindOfClass:NSNumber.class] || ![a[@"partial"] isKindOfClass:NSNumber.class]) return false;
-        seen |= 1u<<i; dest->available[i]=[a[@"available"] boolValue]; dest->agent_partial[i]=[a[@"partial"] boolValue];
+        seen |= 1u<<i; dest->agent_order[dest->agent_count++]=(ac_agent_id_t)i; dest->available[i]=[a[@"available"] boolValue]; dest->agent_partial[i]=[a[@"partial"] boolValue];
     }
     NSString *previous=@"";
     for(id v in days) {
@@ -100,7 +100,7 @@ static bool statistics_decode(ac_usage_stats_t *dest,id value)
         NSDictionary *counts=obj(d[@"tokens"]);
         for(int i=0;i<AC_AGENT_COUNT;++i) {
             id value=counts[ids[i]];
-            if(value==NSNull.null) continue;
+            if(value==nil || value==NSNull.null) continue;
             double n=numeric(value);
             if(n<0 || n>9007199254740991.0 || floor(n)!=n) return false;
             day->tokens[i]=(ac_metric_t){.available=dest->available[i],.value=n,.estimated=dest->agent_partial[i]};
@@ -132,7 +132,7 @@ static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_moc
     if(![s[@"schema_version"] isEqual:@1]) return false;
     bool mock=[s[@"data_source"] isEqual:@"mock"];
     if(!mock && ![s[@"data_source"] isEqual:@"live"]) return false;
-    if(mock!=allow_mock || arr(s[@"agents"]).count!=AC_AGENT_COUNT) return false;
+    if(mock!=allow_mock || (arr(s[@"agents"]).count<1 || arr(s[@"agents"]).count>AC_VISIBLE_AGENT_LIMIT)) return false;
     double seq=numeric(s[@"seq"]);
     if(seq<1 || seq>9007199254740991.0 || floor(seq)!=seq || ![s[@"sessions"] isKindOfClass:NSArray.class] || arr(s[@"sessions"]).count>15) return false;
     memset(dest, 0, sizeof(*dest)); dest->mock=mock;
@@ -140,10 +140,11 @@ static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_moc
     NSDate *date=date_from(s[@"generated_at"]);
     if(!date || fabs(date.timeIntervalSinceNow)>10) return false;
     if(!statistics_decode(&dest->token_statistics,s[@"token_statistics"])) return false;
-    NSArray *ids=@[@"codex", @"claude", @"deepseek"]; unsigned seen=0;
+    NSArray *ids=@[@"codex", @"claude", @"deepseek", @"grok"]; unsigned seen=0;
+    for(int i=0;i<AC_AGENT_COUNT;++i){dest->agents[i].state=AC_STATE_UNKNOWN;dest->agents[i].quality=AC_QUALITY_UNKNOWN;}
     for(id value in arr(s[@"agents"])) {
         NSDictionary *a=obj(value); int index=index_of(a[@"id"], ids, -1);
-        if(index<0 || (seen & (1u<<index))) return false; seen|=1u<<index;
+        if(index<0 || (seen & (1u<<index))) return false; seen|=1u<<index; dest->agent_order[dest->agent_count++]=(ac_agent_id_t)index;
         if(numeric(a[@"session_count"])<0 || numeric(a[@"session_count"])>1000000 || numeric(a[@"running_count"])<0 || numeric(a[@"running_count"])>1000000 || numeric(a[@"waiting_count"])<0 || numeric(a[@"waiting_count"])>1000000) return false;
         ac_agent_t *agent=&dest->agents[index];
         agent->state=state(a[@"state"]); agent->quality=quality(a[@"status_quality"]); agent->health=health(a[@"observation_health"]);
@@ -162,7 +163,7 @@ static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_moc
     }
     for(id value in arr(s[@"sessions"])) {
         NSDictionary *srow=obj(value); int index=index_of(srow[@"agent_id"], ids, -1);
-        if(index<0 || !str(srow[@"id"]).length || !str(srow[@"title"]).length) return false;
+        if(index<0 || !(seen & (1u<<index)) || !str(srow[@"id"]).length || !str(srow[@"title"]).length) return false;
         if(index<0 || dest->agents[index].session_count>=AC_SESSION_LIMIT) continue;
         ac_agent_t *agent=&dest->agents[index]; session_decode(&agent->sessions[agent->session_count++], srow);
     }
