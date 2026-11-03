@@ -98,6 +98,19 @@ export function createLiveGateway(collector: Collector, token: string, port = 87
       if (!authorized(request)) return error("unauthorized", 401);
       const origin = request.headers.get("origin");
       if (origin && origin !== server.url.origin) return error("origin_denied", 403);
+      if(path==="/api/v1/quotas/status"&&request.method==="GET")return Response.json(collector.quotaStatus?.()??{enabled:false},{headers:{"Cache-Control":"no-store"}});
+      if(path==="/api/v1/quotas/refresh"&&request.method==="POST"){
+        try{
+          if(!request.headers.get("content-type")?.startsWith("application/json"))return error("json_required",415);
+          const text=await request.text();if(text.length>256)return error("request_too_large",413);
+          const value:unknown=JSON.parse(text);
+          if(!value||typeof value!=="object"||Array.isArray(value))return error("invalid_quota_trigger",400);
+          const body=value as Record<string,unknown>;
+          if(Object.keys(body).length!==1||!["wake","manual"].includes(String(body.reason)))return error("invalid_quota_trigger",400);
+          if(!collector.triggerQuota)return error("quota_monitor_unavailable",409);
+          collector.triggerQuota(body.reason as "wake"|"manual");return Response.json({status:"queued"},{status:202,headers:{"Cache-Control":"no-store"}});
+        }catch{return error("invalid_quota_trigger",400);}
+      }
       if(path==="/api/v1/credentials"&&credentials)return credentials.response(request);
       if(path==="/api/v1/host-display"){
         if(request.method==="POST"){

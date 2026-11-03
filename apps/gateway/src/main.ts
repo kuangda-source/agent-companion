@@ -1,4 +1,5 @@
 import { createLiveGateway, createMockGateway } from "./server.ts";
+import {CodexQuotaReader} from "./codex-quota-rpc.ts";
 import { LiveState } from "./state.ts";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -19,7 +20,8 @@ const runtime = process.env.AGENT_COMPANION_RUNTIME ? resolve(process.env.AGENT_
 if (!mock) { await mkdir(runtime, { recursive: true, mode: 0o700 }); await chmod(runtime, 0o700); }
 const budgetAmount = Number(process.env.DEEPSEEK_BALANCE_BUDGET_CNY);
 if (process.env.DEEPSEEK_BALANCE_BUDGET_CNY && (!Number.isFinite(budgetAmount) || budgetAmount <= 0)) throw new Error("Invalid DEEPSEEK_BALANCE_BUDGET_CNY");
-const state = new LiveState(undefined, mock ? undefined : runtime, budgetAmount > 0 ? { currency: "CNY", amount: budgetAmount } : null);
+const quotaReader=mock||probe?undefined:new CodexQuotaReader();
+const state = new LiveState(undefined, mock ? undefined : runtime, budgetAmount > 0 ? { currency: "CNY", amount: budgetAmount } : null,{quotaRead:quotaReader?(signal)=>quotaReader.read(signal):undefined});
 if (!mock) await state.refresh();
 if (probe) {
   console.log(JSON.stringify({ at: state.current().generated_at, data_source: "live", agents: state.current().agents,
@@ -46,6 +48,7 @@ async function stop() {
   remote?.close();
   lan?.close();
   gateway.close();
+  await state.shutdownQuota();
   await assistant?.shutdown();
   if (token && await Bun.file(tokenFile).text().catch(() => "") === token) await rm(tokenFile, { force: true });
   process.exit(0);

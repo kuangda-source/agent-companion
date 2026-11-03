@@ -135,9 +135,13 @@ struct RemoteConnectionStatus: Codable, Equatable {
             displayPostTask = nil
         }
     }
+    private func refreshQuotaAfterWake() {
+        guard online else { return }
+        Task { _ = try? await fetch("api/v1/quotas/refresh",patch:["reason":"wake"],method:"POST") }
+    }
     func start() {
         guard pollTask == nil else { return }
-        displayMonitor = HostDisplayMonitor { [weak self] value in self?.publishDisplay(value) }
+        displayMonitor = HostDisplayMonitor(publish: { [weak self] value in self?.publishDisplay(value) }, wake: { [weak self] in self?.refreshQuotaAfterWake() })
         pollTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -154,7 +158,7 @@ struct RemoteConnectionStatus: Codable, Equatable {
                             let received = try JSONDecoder().decode(Preferences.self, from: data)
                             if received != preferences { preferences = received }
                         }
-                        if !online { online = true; displayMonitor?.sample(force:true) }
+                        if !online { online = true; displayMonitor?.sample(force:true); refreshQuotaAfterWake() }
                         displayMonitor?.sample()
                         if selected == .device,let data = try? await fetch("api/v1/host-display"),let status = try? JSONDecoder().decode(HostDisplayStatus.self,from:data) { hostDisplayStatus = status }
                         if message != "本机服务已连接" { message = "本机服务已连接" }

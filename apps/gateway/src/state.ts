@@ -1,7 +1,8 @@
 import { homedir } from "node:os";
 import { AGENT_IDS, STATUS_PRIORITY, type Agent, type AgentId, type Session, type Snapshot } from "../../../packages/protocol/src/index.ts";
 import { capability, liveWriters, type TranscriptSource } from "./adapters/common.ts";
-import { CodexAdapter, currentCodexQuota } from "./adapters/codex.ts";
+import {CodexQuotaMonitor,type QuotaRead} from "./codex-quota.ts";
+import { CodexAdapter } from "./adapters/codex.ts";
 import { ClaudeAdapter } from "./adapters/claude.ts";
 import { DeepSeekAdapter } from "./adapters/deepseek.ts";
 import { DeepSeekBalance } from "./balance.ts";
@@ -38,9 +39,10 @@ export function summarize(id: AgentId, sessions: Session[], count: number, at: s
   };
 }
 
-export interface Collector { refresh(): Promise<Snapshot>; current(): Snapshot; detail(id: string): Session | undefined; sessions?(): Session[]; source?(id:string): TranscriptSource | undefined }
+export interface Collector { refresh(): Promise<Snapshot>; current(): Snapshot; detail(id: string): Session | undefined; sessions?(): Session[]; source?(id:string): TranscriptSource | undefined; quotaStatus?():unknown; triggerQuota?(reason:"wake"|"manual"):void }
 export class LiveState implements Collector {
   private codex: CodexAdapter;
+  private quota:CodexQuotaMonitor;
   private claude: ClaudeAdapter;
   private deepseek: DeepSeekAdapter;
   private history: UsageHistory;
@@ -49,12 +51,16 @@ export class LiveState implements Collector {
   private all: Session[] = [];
   private refreshing = false;
   private schedules: ScheduleReader;
-  constructor(home = homedir(), runtime?: string, budget: AccountBalance["budget"] = null) {
+  constructor(home = homedir(), runtime?: string, budget: AccountBalance["budget"] = null, options:{quotaRead?:QuotaRead}={}) {
     this.schedules=new ScheduleReader(home);
+    this.quota=new CodexQuotaMonitor(options.quotaRead,runtime?join(runtime,"codex-quota.json"):undefined);
     this.codex = new CodexAdapter(home); this.claude = new ClaudeAdapter(home); this.deepseek = new DeepSeekAdapter(home);
     this.history = new UsageHistory(home, runtime ? join(runtime, "token_usage.sqlite") : ":memory:");
     this.balance = runtime ? new DeepSeekBalance(join(runtime, "secrets/deepseek-api-key"), fetch, budget) : null;
   }
+  quotaStatus(){return this.quota.status();}
+  triggerQuota(reason:"wake"|"manual"){this.quota.trigger(reason);}
+  async shutdownQuota(){await this.quota.close();}
   resetBalance(){this.balance?.reset();}
   current() { return this.value; }
   sessions() { return this.all; }
@@ -74,13 +80,13 @@ export class LiveState implements Collector {
         const id = AGENT_IDS[i], result = results[i];
         if (result.status === "fulfilled") {
           const agent = summarize(id, result.value.sessions, result.value.count, at);
-          if ("quota" in result.value) agent.quota = result.value.quota;
+          if ("quota" in result.value){this.quota.observe(agent.running_count>0,result.value.quota,result.value.sessions.filter(s=>s.state==="running"&&s.observation_health==="fresh").map(s=>s.id+":"+s.started_at));agent.quota=this.quota.current();}
           if (id === "deepseek") agent.balance = this.balance?.current() ?? null;
           agents.push(agent); all.push(...result.value.sessions);
         } else {
           const previous = this.value.agents.find(a => a.id === id);
           const agent = previous ? structuredClone(previous) : summarize(id, [], 0, at);
-          if(id==="codex")agent.quota=currentCodexQuota(agent.quota,at);
+          if(id==="codex"){this.quota.tick();agent.quota=this.quota.current();}
           agent.observation_health = "stale"; agent.note = "来源读取失败；保留最后已知信息";
           agents.push(agent);
           all.push(...this.all.filter(s => s.agent_id === id).map(s => ({ ...s, observation_health: "stale" as const })));

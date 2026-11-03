@@ -33,3 +33,12 @@
 ## 贡献与隐私
 
 保持增量修改。不要提交 `.runtime/`、应用数据目录、真实会话、数据库、固件全盘备份、证书私钥或配网文件。Issue 和录屏请使用 MOCK 数据。通过 PR 提交代码，说明改动目的、测试与硬件验证范围。
+
+
+## Codex 额度补查
+
+本机日志约每 2 秒随会话采集；有确认运行中的 Codex 轮次时，每分钟用官方 CLI 的 `account/rateLimits/read` 核对一次。空闲且剩余额度严格低于 20% 时每小时补查，恰好 20% 或更高则不做空闲轮询。启动、系统/显示器唤醒、新运行轮次、全部结束与预计重置时间是独立的补查触发；到点只查询，不推算额度恢复。日志不会因 15 分钟空闲而被清除。
+
+优先使用已运行的 app-server 代理；不可用时临时启动官方 app-server，仅发送 initialize / initialized / account/rateLimits/read，结果读取后退出并回收进程。不会创建会话、调用模型、重置额度或修改 Codex 原配置。需有已登录的官方 Codex CLI；在 PATH 与官方 Mac 应用位置自动发现，也可自行设置 CODEX_CLI_PATH。无可用 CLI/登录时保留本地最后读数，查询失败不影响设备通道。凭据由官方 CLI 自行管理，应用不提取 OAuth 文件或把令牌转发给板子/中转。
+
+私有运行目录的 codex-quota.json 只缓存额度观测（600 权限），不含密钥。管理 API /api/v1/quotas/status 可查看调度状态，POST /api/v1/quotas/refresh 仅接受固定 wake/manual 原因；均沿用 loopback 鉴权与 Origin 检查。官方协议依据：https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt 。

@@ -68,17 +68,16 @@ export function reduceCodex(journal: CodexJournal, row: ObjectValue) {
   }
 }
 
-/** Keep an explicitly historical reading while its known allowance window remains open. */
+/** A reset deadline triggers confirmation; it never implies a newly full allowance. */
 export function currentCodexQuota(windows:QuotaWindow[],now:string):QuotaWindow[]{
-  const clock=Date.parse(now);
-  return windows.flatMap(window=>{
-    const observed=window.used_ratio.observed_at,age=observed?clock-Date.parse(observed):NaN;
-    const reset=window.resets_at?Date.parse(window.resets_at):NaN;
-    if(!Number.isFinite(age)||age< -120000||(window.resets_at&&(!Number.isFinite(reset)||clock>=reset)))return [];
-    const stale=age>=15*60_000;
-    if(stale&&!Number.isFinite(reset))return [];
-    return [{...structuredClone(window),health:stale?"stale" as const:"fresh" as const}];
-  });
+ const clock=Date.parse(now);
+ return windows.flatMap(window=>{
+  const at=Date.parse(window.used_ratio.observed_at??"");
+  if(!Number.isFinite(at)||at>clock+120000)return [];
+  const reset=window.resets_at?Date.parse(window.resets_at):null;
+  if(reset!==null&&!Number.isFinite(reset))return [];
+  return [{...structuredClone(window),health:window.health==="stale"||reset!==null&&clock>=reset?"stale" as const:"fresh" as const}];
+ });
 }
 
 export class CodexAdapter {

@@ -156,12 +156,13 @@ test("Codex account quota does not mix model buckets or disappear on token-only 
 });
 
 
-test("Codex last known quota survives an idle period, carries freshness and expires at reset",()=>{
+test("Codex last known quota has no idle TTL and marks a reset deadline pending confirmation",()=>{
  const j=initCodex(),at="2026-11-01T00:00:00Z",reset=Date.parse("2026-11-02T00:00:00Z")/1000;
  reduceCodex(j,{type:"event_msg",timestamp:at,payload:{type:"token_count",rate_limits:{limit_id:"codex",primary:{used_percent:64,window_minutes:10080,resets_at:reset},secondary:{used_percent:12,window_minutes:300}}}});
  expect(currentCodexQuota(j.quota,"2026-11-01T00:14:59Z").map(q=>q.health)).toEqual(["fresh","fresh"]);
- const old=currentCodexQuota(j.quota,"2026-11-01T01:00:00Z");expect(old).toHaveLength(1);expect(old[0].health).toBe("stale");expect(old[0].used_ratio.value).toBe(.64);expect(old[0].used_ratio.observed_at).toBe("2026-11-01T00:00:00.000Z");
- expect(currentCodexQuota(j.quota,"2026-11-02T00:00:00Z")).toHaveLength(0);
+ const old=currentCodexQuota(j.quota,"2026-11-01T01:00:00Z");expect(old).toHaveLength(2);expect(old[0].health).toBe("fresh");expect(old[0].used_ratio.value).toBe(.64);expect(old[0].used_ratio.observed_at).toBe("2026-11-01T00:00:00.000Z");
+ expect(currentCodexQuota(j.quota,"2026-11-02T00:00:00Z")[0].health).toBe("stale");
+ expect(currentCodexQuota(j.quota,"2026-11-02T00:00:00Z")[0].used_ratio.value).toBe(.64);
  expect(j.quota[0].health).toBeUndefined(); // the cached journal remains immutable
  expect(currentCodexQuota(j.quota,"2026-10-30T00:00:00Z")).toHaveLength(0);
  reduceCodex(j,{type:"event_msg",timestamp:"2026-11-01T01:01:00Z",payload:{type:"token_count",rate_limits:{limit_id:"codex",primary:{used_percent:0,window_minutes:10080,resets_at:reset}}}});

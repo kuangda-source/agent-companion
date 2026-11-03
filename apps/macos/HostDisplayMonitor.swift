@@ -19,9 +19,10 @@ struct HostDisplayStatus: Codable, Equatable {
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var forcedSleep = false
     private var lastKey = "", lastSend = Date.distantPast
+    private let wake: () -> Void
     private let publish: (HostDisplaySample) -> Void
-    init(publish: @escaping (HostDisplaySample) -> Void) {
-        self.publish = publish
+    init(publish: @escaping (HostDisplaySample) -> Void, wake: @escaping () -> Void = {}) {
+        self.publish = publish; self.wake = wake
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
             let token = workspace.addObserver(forName:name,object:nil,queue:.main) { [weak self] _ in
@@ -30,7 +31,7 @@ struct HostDisplayStatus: Codable, Equatable {
         }
         for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
             let token = workspace.addObserver(forName:name,object:nil,queue:.main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.forcedSleep = false; self?.sample(force:true) }
+                MainActor.assumeIsolated { self?.forcedSleep = false; self?.sample(force:true); self?.wake() }
             }; observers.append((workspace,token))
         }
         let center = NotificationCenter.default
