@@ -40,7 +40,7 @@ open ~/Applications/AgentCompanion.app
 
 [Mac 配置界面](docs/media/mac-settings.png) · [完整安装与硬件连接](docs/SETUP.md) · [自建中转](docs/RELAY.md) · [开发与已知边界](docs/DEVELOPMENT.md)
 
-支持读取本机 Codex、Grok Bot、DeepSeek Harness 和 Claude Code 记录。Mac 的 **Agent** 页可选择 1–3 个，默认 Codex / Grok / DeepSeek；选择同步到小屏、统计和助手整理。Grok 按 Bot 名称展示本地已缓存公开消息，实时工作状态、完成事件和 Token 暂不可读，保持未知或“—”；每周额度每 10 分钟读取本地缓存，不显示更新时间；桌宠先用占位。来源没有记录或字段不可验证时显示未知。普通 Claude Chat 不作为 Code 会话替代。定时对话直接合并到小屏会话列表，同一对话显示最近一条启用计划，运行状态优先，暂停计划不显示。
+支持读取本机 Codex、Grok Bot、DeepSeek Harness 和 Claude Code 记录。Mac 的 **Agent** 页可选择 1–3 个，默认 Codex / Grok / DeepSeek；选择同步到小屏、统计和助手整理。Grok 按 Bot 名称展示本地已缓存公开消息，实时工作状态、完成事件和 Token 暂不可读，保持未知或“—”；每周额度每 5 分钟读取本地缓存，不显示更新时间；桌宠先用占位。来源没有记录或字段不可验证时显示未知。普通 Claude Chat 不作为 Code 会话替代。定时对话直接合并到小屏会话列表，同一对话显示最近一条启用计划，运行状态优先，暂停计划不显示。
 
 Token 为本机可读取记录统计，缓存计数包含在输入中，不重复相加；无法保证覆盖其他电脑或已删除记录。DeepSeek 显示 API 账户余额，Codex 额度在运行期间随本地记录快速更新，并每分钟经官方只读接口核对；空闲且剩余低于 20% 时每小时补查，达到 20% 即停止空闲补查。启动、唤醒、新运行轮次、结束及预计重置时间会触发确认；重置时间本身不会把额度改成 100%。
 

@@ -354,7 +354,7 @@ struct ControlPanel: View {
                 })) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(["codex": "Codex", "grok": "Grok", "deepseek": "DeepSeek", "claude": "Claude Code"][id] ?? id)
-                        Text(["codex": "本机会话、用量与订阅额度", "grok": "Bot 名称与公开消息；展示 Bot 状态与最近消息；额度每10分钟读取。实时工作状态暂不可读，桌宠素材待接入", "deepseek": "Harness 会话与用量，余额可按需配置", "claude": "本机 Claude Code 记录，有真实记录后显示"][id] ?? "").font(.caption).foregroundStyle(model.theme.muted)
+                        Text(["codex": "本机会话、用量与订阅额度", "grok": "Bot 名称与公开消息；展示 Bot 状态与最近消息；额度每5分钟读取。实时工作状态暂不可读，桌宠素材待接入", "deepseek": "Harness 会话与用量，余额可按需配置", "claude": "本机 Claude Code 记录，有真实记录后显示"][id] ?? "").font(.caption).foregroundStyle(model.theme.muted)
                     }
                 }.disabled(!model.online || model.saving || (enabled ? model.preferences.appearance.agent_ids.count <= 1 : model.preferences.appearance.agent_ids.count >= 3))
                     .accessibilityIdentifier("agent-" + id)

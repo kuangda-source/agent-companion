@@ -14,7 +14,8 @@ test("Grok quota retains the original cache time and cached source health",()=>{
  const q=grokCachedQuota(cache)[0];expect(q.used_ratio.value).toBe(.055);expect(q.used_ratio.observed_at).toBe(new Date(cache.reading.readAtMs).toISOString());expect(q.health).toBe("stale");
  expect(grokCachedQuota({...cache,selectedTeamId:"different-scope"})).toEqual([]);expect(grokCachedQuota({reading:{usage:{percentUsed:101}}})).toEqual([]);
 });
-test("Grok reads quota every ten minutes while recent messages continue to update",async()=>{
+test("Grok reads quota every five minutes while recent messages continue to update",async()=>{
+ expect(GROK_QUOTA_INTERVAL_MS).toBe(300_000);
  const home=mkdtempSync(join(tmpdir(),"ac-grok-interval-")),root=join(home,"Library/Application Support/Grok Bot/sand-client-persistence");mkdirSync(root,{recursive:true});
  const scope="sand.client.slice.account.mock.",quotaPath=join(root,filename(scope+"weekly-usage.cache")),replicaPath=join(root,filename(scope+"transcript.replicas.bot-one"));
  writeFileSync(join(root,filename(scope+"roster.last-roster")),JSON.stringify({schemaVersion:4,value:{rows:[{id:"bot-one",name:"Example Bot"}]}}));

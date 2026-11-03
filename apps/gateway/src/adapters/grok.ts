@@ -4,7 +4,7 @@ import {join} from "node:path";
 import {addMessage,array,cleanPublicMessage,iso,newSession,object,redactSecrets,string,type TranscriptSource} from "./common.ts";
 
 const ROOT="Library/Application Support/Grok Bot/sand-client-persistence";
-export const GROK_QUOTA_INTERVAL_MS=10*60_000;
+export const GROK_QUOTA_INTERVAL_MS=5*60_000;
 /** File names are base32 encoded logical cache keys, not authentication material. */
 export function grokCacheKey(name:string):string|null {
  if(!/^[a-z2-7]+\.blob$/i.test(name)||name.length>512)return null;
