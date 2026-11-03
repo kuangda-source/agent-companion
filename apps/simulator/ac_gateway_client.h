@@ -4,7 +4,7 @@
 typedef struct {
     bool online;
     bool has_detail;
-    bool has_settings, animations_enabled;
+    bool has_settings, animations_enabled, show_scheduled_tasks;
     uint64_t settings_revision;
     char theme[16];
     ac_snapshot_t snapshot;

@@ -12,7 +12,7 @@ describe("desktop and desired device settings", () => {
       for(const [old,replacement] of [["paper","comic"],["midnight","neumorphism"]] as const) {
         const file=join(dir,"settings.json"), value=new SettingsStore().current();value.revision=7;value.device.brightness=38;value.appearance.animations_enabled=false;
         writeFileSync(file,JSON.stringify({...value,appearance:{...value.appearance,theme:old}}));
-        const result=new SettingsStore(file).current();expect(result.appearance).toEqual({theme:replacement,animations_enabled:false});expect(result.device.brightness).toBe(38);expect(result.revision).toBe(8);
+        const result=new SettingsStore(file).current();expect(result.appearance).toEqual({theme:replacement,animations_enabled:false,show_scheduled_tasks:true});expect(result.device.brightness).toBe(38);expect(result.revision).toBe(8);
         expect(new SettingsStore(file).current()).toEqual(result);
       }
     } finally {rmSync(dir,{recursive:true});}
@@ -25,7 +25,7 @@ describe("desktop and desired device settings", () => {
       a.update({ device: { brightness: 35 } });
       a.update({ appearance: { animations_enabled: false } });
       const restored = new SettingsStore(file).current();
-      expect(restored.appearance).toEqual({ theme: "comic", animations_enabled: false });
+      expect(restored.appearance).toEqual({ theme: "comic", animations_enabled: false, show_scheduled_tasks: true });
       expect(restored.device.brightness).toBe(35); expect(restored.revision).toBe(3);
       expect(statSync(file).mode & 0o777).toBe(0o600);
       expect(a.deviceStatus()).toMatchObject({ connected: false, pending: true, applied_settings: null });
@@ -48,4 +48,18 @@ describe("desktop and desired device settings", () => {
       expect(await device.json()).toMatchObject({ connected: false, applied_settings: null, pending: true });
     } finally { gateway.close(); }
   });
+});
+
+test("schedule visibility defaults on for older preferences and persists independently",()=>{
+ const dir=mkdtempSync(join(tmpdir(),"ac-schedule-display-")),file=join(dir,"settings.json");
+ try{
+  const old=new SettingsStore().current();const {show_scheduled_tasks:removed,...appearance}=old.appearance;
+  writeFileSync(file,JSON.stringify({...old,appearance}));const store=new SettingsStore(file);
+  expect(store.current().appearance.show_scheduled_tasks).toBe(true);
+  store.update({appearance:{show_scheduled_tasks:false}});store.update({appearance:{theme:"comic"}});
+  expect(new SettingsStore(file).current().appearance.show_scheduled_tasks).toBe(false);
+  expect(()=>store.update({appearance:{show_scheduled_tasks:"false"}})).toThrow();
+  expect(store.current().appearance.show_scheduled_tasks).toBe(false);
+  store.update({appearance:{show_scheduled_tasks:true}});expect(new SettingsStore(file).current().appearance.show_scheduled_tasks).toBe(true);
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });

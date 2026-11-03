@@ -3,7 +3,8 @@
   "revision": 0,
   "appearance": {
     "theme": "neon",
-    "animations_enabled": true
+    "animations_enabled": true,
+    "show_scheduled_tasks": true
   },
   "device": {
     "brightness": 75,

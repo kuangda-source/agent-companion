@@ -111,6 +111,8 @@ static void apply_packet(input_packet_t packet,ac_snapshot_t *snapshot,ac_assist
             if(bsp_display_lock(2000)){
                 if(cJSON_IsString(theme))ac_bootstrap_screen_set_theme(theme->valuestring);
                 if(cJSON_IsBool(motion))ac_bootstrap_screen_set_animations(cJSON_IsTrue(motion));
+                const cJSON *scheduled=get(appearance,"show_scheduled_tasks");
+                if(cJSON_IsBool(scheduled))ac_bootstrap_screen_set_scheduled_tasks_visible(cJSON_IsTrue(scheduled));
                 bool display_ok=apply_display(get(get(o,"settings"),"display"));
                 ac_bootstrap_screen_apply(snapshot,millis());if(feed_ok){*last_feed=*feed;apply_feed(last_feed);}if(detail_ok)ac_bootstrap_screen_detail(detail);
                 last_received=millis();connected=true;active_remote=packet.remote;
@@ -164,7 +166,7 @@ void app_main(void){
     ac_bootstrap_screen_create(true,false,request_detail);ac_bootstrap_screen_theme_handler(request_theme);ac_assistant_panel_refresh_handler(request_refresh);apply_feed(last_feed);
     lv_timer_create(tick,16,NULL);lv_display_add_event_cb(display,refreshed,LV_EVENT_REFR_READY,NULL);
     lv_indev_t *input=NULL;while((input=lv_indev_get_next(input)))if(lv_indev_get_type(input)==LV_INDEV_TYPE_POINTER){lv_indev_add_event_cb(input,touch,LV_EVENT_PRESSED,NULL);lv_indev_add_event_cb(input,touch,LV_EVENT_RELEASED,NULL);}
-    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.11");
+    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.12");
     incoming=xQueueCreate(2,sizeof(input_packet_t));assert(incoming);
     xTaskCreate(apply_task,"ac_apply",12288,NULL,4,NULL);
     ac_network_init(submit);

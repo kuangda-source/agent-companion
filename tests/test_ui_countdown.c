@@ -32,5 +32,11 @@ int main(void){
     ac_bootstrap_screen_show_schedules(true);assert(contains(lv_screen_active(),"运行中"));assert(!contains(lv_screen_active(),"Future task"));assert(!contains(lv_screen_active(),"还剩"));
     session->state=AC_STATE_COMPLETED;task->activity=AC_SCHEDULE_PLANNED;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1023);assert(contains(lv_screen_active(),"Future task"));assert(contains(lv_screen_active(),"还剩2分0秒"));
     ac_bootstrap_screen_show_schedules(false);assert(contains(lv_screen_active(),"Future task"));assert(!contains(lv_screen_active(),"已完成"));
+    ac_bootstrap_screen_set_scheduled_tasks_visible(false);assert(!contains(lv_screen_active(),"Future task"));assert(contains(lv_screen_active(),"已完成"));
+    snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1024);assert(!contains(lv_screen_active(),"Future task"));
+    session->state=AC_STATE_RUNNING;task->activity=AC_SCHEDULE_RUNNING;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1025);assert(contains(lv_screen_active(),"运行中"));assert(!contains(lv_screen_active(),"Future task"));
+    ac_bootstrap_screen_set_scheduled_tasks_visible(true);session->state=AC_STATE_COMPLETED;task->activity=AC_SCHEDULE_PLANNED;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1026);assert(contains(lv_screen_active(),"Future task"));
+    snapshot.agents[0].quota=(ac_metric_t){.available=true,.value=.64};snapshot.agents[0].quota_minutes=10080;snapshot.agents[0].quota_stale=true;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1027);assert(contains(lv_screen_active(),"上次 7d 剩余 36%"));
+    snapshot.agents[0].quota_stale=false;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1028);assert(!contains(lv_screen_active(),"上次 7d"));assert(contains(lv_screen_active(),"7d 剩余 36%"));
     ac_bootstrap_screen_destroy();lv_display_delete(display);lv_deinit();puts("PASS snapshot clock and scheduled conversation: running replaces future, no duplicate, completion restores countdown");return 0;
 }

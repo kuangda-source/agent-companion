@@ -156,7 +156,7 @@ static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_moc
             double minutes=numeric(q[@"window_minutes"]);
             if(!used.available || used.value>1 || minutes<=0 || minutes>1000000 || floor(minutes)!=minutes) continue;
             if(!agent->quota.available || used.value>agent->quota.value || (used.value==agent->quota.value && minutes<agent->quota_minutes)) {
-                agent->quota=used; agent->quota_minutes=(unsigned)minutes;
+                agent->quota=used; agent->quota_minutes=(unsigned)minutes;agent->quota_stale=[q[@"health"] isEqual:@"stale"];
             }
         }
     }
@@ -255,7 +255,7 @@ static void *run(void *unused)
                     NSString *theme_name=str(appearance[@"theme"]);id motion=appearance[@"animations_enabled"];
                     double revision=numeric(settings[@"revision"]);
                     if([@[@"neon",@"comic",@"neumorphism"] containsObject:theme_name] && [motion isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)motion)==CFBooleanGetTypeID() && revision>=0 && floor(revision)==revision && revision<=9007199254740991.0) {
-                        result->has_settings=true;result->settings_revision=(uint64_t)revision;result->animations_enabled=[motion boolValue];copy_text(result->theme,sizeof(result->theme),theme_name);
+                        result->has_settings=true;result->settings_revision=(uint64_t)revision;result->animations_enabled=[motion boolValue];result->show_scheduled_tasks=appearance[@"show_scheduled_tasks"]==nil || [appearance[@"show_scheduled_tasks"] boolValue];copy_text(result->theme,sizeof(result->theme),theme_name);
                     }
                 }
                 if(result->online && requested[0]) {

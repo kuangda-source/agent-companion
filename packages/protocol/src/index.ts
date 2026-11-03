@@ -52,6 +52,7 @@ export interface Capability {
   note: string;
 }
 export interface QuotaWindow {
+  health?: "fresh" | "stale";
   window_minutes: number;
   used_ratio: Measured<number>;
   resets_at: string | null;

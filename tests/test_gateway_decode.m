@@ -37,6 +37,9 @@ int main(int argc,char **argv)
         codex[@"quota"]=@[week_window,short_window]; assert(decode(fixture,&snapshot,true));
         assert(snapshot.agents[0].quota_minutes==10080 && snapshot.agents[0].quota.value==0.64);
         assert(ac_quota_view(snapshot.agents[0].quota,AC_OBSERVATION_FRESH).band==AC_QUOTA_YELLOW);
+        codex[@"quota"]=@[[week_window mutableCopy]];((NSMutableDictionary *)codex[@"quota"][0])[@"health"]=@"stale";assert(decode(fixture,&snapshot,true));assert(snapshot.agents[0].quota_stale);
+        codex[@"quota"]=@[week_window];assert(decode(fixture,&snapshot,true));assert(!snapshot.agents[0].quota_stale);
+
         assert(!decode(fixture,&snapshot,false)); // never mix synthetic records into LIVE
         fixture[@"schema_version"]=@2; assert(!decode(fixture,&snapshot,true)); fixture[@"schema_version"]=@1;
         fixture[@"seq"]=NSNull.null; assert(!decode(fixture,&snapshot,true));

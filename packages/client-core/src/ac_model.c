@@ -9,7 +9,7 @@ static bool active_session(const ac_agent_t *a,const ac_schedule_t *t){
     return false;
 }
 static bool planned_session(const ac_agent_schedule_t *tasks,const ac_session_t *s){
-    if(!s->id[0])return false;
+    if(!tasks||!s->id[0])return false;
     for(size_t i=0;i<tasks->count;i++)if(scheduled_visible(&tasks->tasks[i])&&!strcmp(tasks->tasks[i].session_id,s->id))return true;
     return false;
 }
@@ -17,8 +17,8 @@ size_t ac_activity_order(const ac_agent_t *a,const ac_agent_schedule_t *tasks,ac
     size_t count=0;
     for(size_t i=0;i<a->session_count&&count<capacity;i++)if(busy(&a->sessions[i]))out[count++]=(ac_activity_item_t){false,i};
     /* Active linked conversations outside the five captured rows must still beat future plans. */
-    for(size_t i=0;i<tasks->count&&count<capacity;i++)if(scheduled_visible(&tasks->tasks[i])&&tasks->tasks[i].activity!=AC_SCHEDULE_PLANNED&&!active_session(a,&tasks->tasks[i]))out[count++]=(ac_activity_item_t){true,i};
-    for(size_t i=0;i<tasks->count&&count<capacity;i++)if(scheduled_visible(&tasks->tasks[i])&&tasks->tasks[i].activity==AC_SCHEDULE_PLANNED&&!active_session(a,&tasks->tasks[i]))out[count++]=(ac_activity_item_t){true,i};
+    for(size_t i=0;tasks&&i<tasks->count&&count<capacity;i++)if(scheduled_visible(&tasks->tasks[i])&&tasks->tasks[i].activity!=AC_SCHEDULE_PLANNED&&!active_session(a,&tasks->tasks[i]))out[count++]=(ac_activity_item_t){true,i};
+    for(size_t i=0;tasks&&i<tasks->count&&count<capacity;i++)if(scheduled_visible(&tasks->tasks[i])&&tasks->tasks[i].activity==AC_SCHEDULE_PLANNED&&!active_session(a,&tasks->tasks[i]))out[count++]=(ac_activity_item_t){true,i};
     for(size_t i=0;i<a->session_count&&count<capacity;i++)if(!busy(&a->sessions[i])&&!planned_session(tasks,&a->sessions[i]))out[count++]=(ac_activity_item_t){false,i};
     return count;
 }

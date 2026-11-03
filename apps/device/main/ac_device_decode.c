@@ -61,7 +61,7 @@ bool ac_device_snapshot_checked(const cJSON *s,ac_snapshot_t *d,ac_decode_info_t
         if(info)info->reason="agent_counts";
         if(!whole(get(v,"session_count"),0,1000000)||!whole(get(v,"running_count"),0,1000000)||!whole(get(v,"waiting_count"),0,1000000))return false;
         a->state=state(get(v,"state"));a->quality=quality(get(v,"status_quality"));a->health=health(get(v,"observation_health"));a->total=num(get(v,"session_count"));a->running=num(get(v,"running_count"));a->waiting=num(get(v,"waiting_count"));text(a->note,sizeof(a->note),get(v,"note"));balance(&a->balance,get(v,"balance"));
-        const cJSON *q;cJSON_ArrayForEach(q,get(v,"quota")){ac_metric_t used=metric(get(q,"used_ratio"));const cJSON *mins=get(q,"window_minutes");if(!used.available||used.value>1||!whole(mins,1,1000000))continue;if(!a->quota.available||used.value>a->quota.value||(used.value==a->quota.value&&num(mins)<a->quota_minutes)){a->quota=used;a->quota_minutes=num(mins);}}}
+        const cJSON *q;cJSON_ArrayForEach(q,get(v,"quota")){ac_metric_t used=metric(get(q,"used_ratio"));const cJSON *mins=get(q,"window_minutes");if(!used.available||used.value>1||!whole(mins,1,1000000))continue;if(!a->quota.available||used.value>a->quota.value||(used.value==a->quota.value&&num(mins)<a->quota_minutes)){a->quota=used;a->quota_minutes=num(mins);a->quota_stale=!strcmp(str(get(q,"health")),"stale");}}}
     if(info)info->reason="session_identity";
     cJSON_ArrayForEach(v,ss){int i=agent(get(v,"agent_id"));if(i<0||!str(get(v,"id"))[0]||!str(get(v,"title"))[0])return false;ac_agent_t *a=&d->agents[i];if(a->session_count<5)session(&a->sessions[a->session_count++],v);}
     const cJSON *scheduled=get(s,"scheduled_tasks"),*entry;

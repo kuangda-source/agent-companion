@@ -35,6 +35,11 @@
         },
         "animations_enabled": {
           "type": "boolean"
+        },
+        "show_scheduled_tasks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Merge scheduled entries into the display conversation list. Does not pause or change source automations."
         }
       }
     },

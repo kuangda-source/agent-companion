@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { AGENT_IDS, STATUS_PRIORITY, type Agent, type AgentId, type Session, type Snapshot } from "../../../packages/protocol/src/index.ts";
 import { capability, liveWriters, type TranscriptSource } from "./adapters/common.ts";
-import { CodexAdapter } from "./adapters/codex.ts";
+import { CodexAdapter, currentCodexQuota } from "./adapters/codex.ts";
 import { ClaudeAdapter } from "./adapters/claude.ts";
 import { DeepSeekAdapter } from "./adapters/deepseek.ts";
 import { DeepSeekBalance } from "./balance.ts";
@@ -80,6 +80,7 @@ export class LiveState implements Collector {
         } else {
           const previous = this.value.agents.find(a => a.id === id);
           const agent = previous ? structuredClone(previous) : summarize(id, [], 0, at);
+          if(id==="codex")agent.quota=currentCodexQuota(agent.quota,at);
           agent.observation_health = "stale"; agent.note = "来源读取失败；保留最后已知信息";
           agents.push(agent);
           all.push(...this.all.filter(s => s.agent_id === id).map(s => ({ ...s, observation_health: "stale" as const })));

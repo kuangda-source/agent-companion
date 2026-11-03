@@ -311,6 +311,7 @@ int main(int argc, char **argv)
                     if(!forced_theme) ac_bootstrap_screen_set_theme(gateway_update.theme);
                     if(old!=ac_theme_current()) ac_window_theme(window,ac_theme_dark());
                     if(!reduced_motion) ac_bootstrap_screen_set_animations(gateway_update.animations_enabled);
+                    ac_bootstrap_screen_set_scheduled_tasks_visible(gateway_update.show_scheduled_tasks);
                     settings_revision=gateway_update.settings_revision;
                 }
                 ac_bootstrap_screen_apply(&gateway_update.snapshot,SDL_GetTicks64());

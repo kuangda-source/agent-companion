@@ -24,7 +24,8 @@ static int theme_ids[AC_THEME_COUNT]={AC_THEME_NEON,AC_THEME_COMIC,AC_THEME_NEUM
 static ac_theme_request_fn request_theme;
 static int usage_periods[2]={7,30};
 static lv_obj_t *columns[5], *rows[5], *row_title[5], *row_state[5], *row_time[5], *row_tokens[5], *row_cache[5], *row_context[5], *context_bars[5];
-static lv_obj_t *schedule_tabs[2],*schedule_page;
+static lv_obj_t *schedule_page;
+static bool scheduled_tasks_visible=true;
 static bool showing_schedules;static unsigned schedule_offset;
 static AC_UI_LARGE_BSS ac_activity_item_t home_items[AC_SESSION_LIMIT+AC_SCHEDULE_LIMIT];static size_t home_count;
 static lv_obj_t *empty, *detail_body, *back, *detail_meta, *detail_source;
@@ -119,13 +120,12 @@ static void refresh_countdowns(void){
 }
 static void render_list(void)
 {
-    for(int i=0;i<2;i++){hide(schedule_tabs[i],showing_detail);if((i==1)==showing_schedules)lv_obj_add_state(schedule_tabs[i],LV_STATE_CHECKED);else lv_obj_remove_state(schedule_tabs[i],LV_STATE_CHECKED);}
-    hide(schedule_page,showing_detail);lv_obj_set_pos(panel_title,16,14);ellipsis(panel_title,385);
+    hide(schedule_page,showing_detail);lv_obj_set_pos(panel_title,16,14);ellipsis(panel_title,520);
     if(showing_schedules){render_schedule_list();return;}
     const ac_agent_t *a=&current.agents[selected];const ac_agent_schedule_t *tasks=&current.schedules.agents[selected];
-    home_count=ac_activity_order(a,tasks,home_items,AC_SESSION_LIMIT+AC_SCHEDULE_LIMIT);if(schedule_offset>=home_count)schedule_offset=0;
+    home_count=ac_activity_order(a,scheduled_tasks_visible?tasks:NULL,home_items,AC_SESSION_LIMIT+AC_SCHEDULE_LIMIT);if(schedule_offset>=home_count)schedule_offset=0;
     size_t pages=(home_count+4)/5;if(!pages)pages=1;hide(schedule_page,showing_detail||pages<=1);lv_label_set_text_fmt(lv_obj_get_child(schedule_page,0),"%u/%zu ›",schedule_offset/5+1,pages);
-    if(tasks->count)lv_label_set_text_fmt(panel_title,"%s / 会话与定时",names[selected]);else lv_label_set_text_fmt(panel_title,"%s / 最近 %zu 个会话",names[selected],a->session_count);
+    if(scheduled_tasks_visible&&tasks->count)lv_label_set_text_fmt(panel_title,"%s / 会话与定时",names[selected]);else lv_label_set_text_fmt(panel_title,"%s / 最近 %zu 个会话",names[selected],a->session_count);
     const char *headings[]={"会话 / 状态","TIME","IN / OUT","CACHE","CTX"};int colx[]={18,266,354,474,572};for(int i=0;i<5;i++){lv_label_set_text(columns[i],headings[i]);lv_obj_set_x(columns[i],colx[i]);hide(columns[i],showing_detail);}
     for(size_t i=0;i<5;++i){
         size_t at=schedule_offset+i;hide(rows[i],showing_detail||at>=home_count);if(at>=home_count)continue;
@@ -161,7 +161,8 @@ static void render_cards(const char *completions[3])
         else if(a->running || a->waiting) lv_label_set_text_fmt(card_counts[i],"%u 运行 · %u 等待",a->running,a->waiting);
         else lv_label_set_text_fmt(card_counts[i],"%u 个本地会话",a->total);
         const ac_balance_t *balance=&a->balance;
-        ac_quota_view_t quota=ac_quota_view(a->quota,h);
+        ac_quota_view_t quota=ac_quota_view(a->quota,AC_OBSERVATION_FRESH);
+        bool quota_old=a->quota_stale||h!=AC_OBSERVATION_FRESH;
         bool money=balance->available;
         bool money_fresh=money && balance->health==AC_OBSERVATION_FRESH && transport_health==AC_OBSERVATION_FRESH;
         if(money) {
@@ -176,9 +177,9 @@ static void render_cards(const char *completions[3])
             lv_label_set_text_fmt(card_quota[i],"%s %s%.2f",money_fresh?"余额":"上次",currency,balance->total);
         } else if(quota.available) {
             unsigned mins=a->quota_minutes;
-            if(mins%1440==0) lv_label_set_text_fmt(card_quota[i],"%ud 剩余 %.0f%%",mins/1440,quota.remaining_ratio*100);
-            else if(mins%60==0) lv_label_set_text_fmt(card_quota[i],"%uh 剩余 %.0f%%",mins/60,quota.remaining_ratio*100);
-            else lv_label_set_text_fmt(card_quota[i],"%um 剩余 %.0f%%",mins,quota.remaining_ratio*100);
+            if(mins%1440==0) lv_label_set_text_fmt(card_quota[i],"%s%ud 剩余 %.0f%%",quota_old?"上次 ":"",mins/1440,quota.remaining_ratio*100);
+            else if(mins%60==0) lv_label_set_text_fmt(card_quota[i],"%s%uh 剩余 %.0f%%",quota_old?"上次 ":"",mins/60,quota.remaining_ratio*100);
+            else lv_label_set_text_fmt(card_quota[i],"%s%um 剩余 %.0f%%",quota_old?"上次 ":"",mins,quota.remaining_ratio*100);
         } else lv_label_set_text(card_quota[i],i==AC_AGENT_DEEPSEEK?"余额 —":"额度 —");
         uint32_t text_color=money?(money_fresh?(balance->total>0?0x00ffad:0xff3973):0x70d6e2):quota.available?quota_color:0x70d6e2;
         lv_obj_set_style_text_color(card_quota[i],ac_color(text_color),0);
@@ -233,8 +234,12 @@ static void render_header_usage(void)
 }
 static void agent_clicked(lv_event_t *e) { select_agent(*(int *)lv_event_get_user_data(e)); }
 static void back_clicked(lv_event_t *e) { (void)e; select_agent(selected); }
-void ac_bootstrap_screen_show_schedules(bool enabled){showing_schedules=enabled;showing_detail=false;schedule_offset=0;if(detail_request)detail_request("");render_list();}
-static void schedules_clicked(lv_event_t *e){ac_bootstrap_screen_show_schedules(*(int *)lv_event_get_user_data(e)==1);ac_neon_reveal(panel,1,0);}
+void ac_bootstrap_screen_show_schedules(bool enabled){showing_schedules=enabled&&scheduled_tasks_visible;showing_detail=false;schedule_offset=0;if(detail_request)detail_request("");render_list();}
+void ac_bootstrap_screen_set_scheduled_tasks_visible(bool visible){
+    if(scheduled_tasks_visible==visible)return;
+    scheduled_tasks_visible=visible;showing_schedules=false;schedule_offset=0;
+    if(panel)render_list();
+}
 static void schedule_next(lv_event_t *e){(void)e;size_t count=showing_schedules?current.schedules.agents[selected].count:home_count;schedule_offset=schedule_offset+5<count?schedule_offset+5:0;render_list();}
 static void row_clicked(lv_event_t *e)
 {
@@ -392,6 +397,7 @@ static void status_bubble(lv_event_t *e)
 }
 void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn request_detail)
 {
+    scheduled_tasks_visible=true;showing_schedules=false;schedule_offset=0;
     mock_mode=mock; detail_request=request_detail; selected=0; showing_detail=false; showing_statistics=false; has_snapshot=false;
     transport_health=AC_OBSERVATION_DISCONNECTED; memset(&current,0,sizeof(current));
     for(int i=0;i<3;++i) { current.agents[i].state=AC_STATE_UNKNOWN; current.agents[i].quality=AC_QUALITY_UNKNOWN; }
@@ -426,8 +432,6 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
         quota_fills[i]=box(quota_tracks[i],0,0,6,108,0x006877); lv_obj_set_style_border_width(quota_fills[i],0,0); lv_obj_set_style_radius(quota_fills[i],3,0);
     }
     panel=box(screen,324,60,688,442,0x0c1019); panel_title=text(panel,16,14,"",0xe9ffff);
-    static int tab_ids[2]={0,1};const char *tab_text[]={"会话","定时"};
-    for(int i=0;i<2;i++){schedule_tabs[i]=box(panel,410+76*i,8,68,30,0x002832);lv_obj_add_flag(schedule_tabs[i],LV_OBJ_FLAG_CLICKABLE);text(schedule_tabs[i],15,4,tab_text[i],0x00ffff);ac_neon_interactive(schedule_tabs[i],AC_NEON_CYAN);lv_obj_add_event_cb(schedule_tabs[i],schedules_clicked,LV_EVENT_CLICKED,&tab_ids[i]);}
     schedule_page=box(panel,564,8,106,30,0x002832);lv_obj_add_flag(schedule_page,LV_OBJ_FLAG_CLICKABLE);text(schedule_page,12,4,"1/1 ›",0x00ffff);ac_neon_interactive(schedule_page,AC_NEON_CYAN);lv_obj_add_event_cb(schedule_page,schedule_next,LV_EVENT_CLICKED,NULL);
     lv_obj_set_style_border_opa(panel,LV_OPA_50,0); ac_neon_rule(panel,14,41,658,AC_NEON_CYAN,LV_OPA_30);
     ac_neon_scanlines(panel);

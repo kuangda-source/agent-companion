@@ -551,6 +551,13 @@
               "type": "null"
             }
           ]
+        },
+        "health": {
+          "enum": [
+            "fresh",
+            "stale"
+          ],
+          "description": "Freshness of the quota observation, independent of session/transport health. Stale means last known until the recorded reset, never a live account query."
         }
       },
       "additionalProperties": false

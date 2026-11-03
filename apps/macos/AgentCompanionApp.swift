@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-struct Appearance: Codable, Equatable { var theme: Theme = .neon; var animations_enabled = true }
+struct Appearance: Codable, Equatable { var theme: Theme = .neon; var animations_enabled = true; var show_scheduled_tasks = true }
 struct DeviceSettings: Codable, Equatable {
     var brightness = 75, volume = 50, sleep_after_seconds = 300
     var transport = "auto", relay_url = ""
@@ -355,6 +355,10 @@ struct ControlPanel: View {
     }
     private var device: some View {
         VStack(spacing: 20) {
+            panel("会话显示") {
+                Toggle("显示定时任务",isOn:Binding(get:{model.preferences.appearance.show_scheduled_tasks},set:{model.update(["appearance":["show_scheduled_tasks":$0]])})).disabled(!model.online || model.saving).accessibilityIdentifier("show-scheduled-tasks")
+                Text("将启用的定时计划合并到小屏会话列表。关闭后保留真实会话，不会暂停或修改原任务。").font(.caption).foregroundStyle(model.theme.muted)
+            }
             panel("跟随 Mac 显示器") {
                 Toggle("同步主显示器亮度",isOn:Binding(get:{model.preferences.device.follow_host_brightness},set:{model.update(["device":["follow_host_brightness":$0]])})).disabled(!model.online || model.saving)
                 Toggle("主显示器熄屏时，小屏同步熄屏",isOn:Binding(get:{model.preferences.device.follow_host_sleep},set:{model.update(["device":["follow_host_sleep":$0]])})).disabled(!model.online || model.saving)

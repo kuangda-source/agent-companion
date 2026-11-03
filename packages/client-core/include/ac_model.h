@@ -62,6 +62,7 @@ typedef struct {
     char note[256];
     ac_metric_t quota;
     unsigned quota_minutes;
+    bool quota_stale;
     ac_balance_t balance;
     ac_session_t sessions[AC_SESSION_LIMIT];
     size_t session_count;

@@ -15,7 +15,9 @@ void ac_bootstrap_screen_create(bool use_assets, bool mock, ac_detail_request_fn
 void ac_bootstrap_screen_apply(const ac_snapshot_t *snapshot, uint64_t now_ms);
 void ac_bootstrap_screen_detail(const ac_session_detail_t *detail);
 void ac_bootstrap_screen_connection_lost(void);
+/* Dedicated schedule view is retained only for USB diagnostics. */
 void ac_bootstrap_screen_show_schedules(bool enabled);
+void ac_bootstrap_screen_set_scheduled_tasks_visible(bool visible);
 void ac_bootstrap_screen_set_animations(bool enabled);
 int32_t ac_bootstrap_screen_detail_scroll_y(void);
 void ac_bootstrap_screen_scroll_at(int x, int y, int delta);

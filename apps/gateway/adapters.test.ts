@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { CodexAdapter, initCodex, reduceCodex } from "./src/adapters/codex.ts";
+import { CodexAdapter, initCodex, reduceCodex, currentCodexQuota } from "./src/adapters/codex.ts";
 import { Database } from "bun:sqlite";
 import { initClaude, reduceClaude } from "./src/adapters/claude.ts";
 import { reduceDeepSeek, type DshJournal } from "./src/adapters/deepseek.ts";
@@ -152,5 +152,18 @@ test("Codex account quota does not mix model buckets or disappear on token-only 
   record("2026-10-30T07:00:02Z",undefined);
   expect(j.quota[0].used_ratio.value).toBe(0.64); expect(j.quotaObservedAt).toBe("2026-10-30T07:00:00.000Z");
   record("2026-10-30T07:00:03Z",{limit_id:"codex",primary:null,secondary:null});
-  expect(j.quota).toHaveLength(0); expect(j.quotaObservedAt).toBe("2026-10-30T07:00:03.000Z");
+  expect(j.quota).toHaveLength(2); expect(j.quotaObservedAt).toBe("2026-10-30T07:00:00.000Z");
+});
+
+
+test("Codex last known quota survives an idle period, carries freshness and expires at reset",()=>{
+ const j=initCodex(),at="2026-11-01T00:00:00Z",reset=Date.parse("2026-11-02T00:00:00Z")/1000;
+ reduceCodex(j,{type:"event_msg",timestamp:at,payload:{type:"token_count",rate_limits:{limit_id:"codex",primary:{used_percent:64,window_minutes:10080,resets_at:reset},secondary:{used_percent:12,window_minutes:300}}}});
+ expect(currentCodexQuota(j.quota,"2026-11-01T00:14:59Z").map(q=>q.health)).toEqual(["fresh","fresh"]);
+ const old=currentCodexQuota(j.quota,"2026-11-01T01:00:00Z");expect(old).toHaveLength(1);expect(old[0].health).toBe("stale");expect(old[0].used_ratio.value).toBe(.64);expect(old[0].used_ratio.observed_at).toBe("2026-11-01T00:00:00.000Z");
+ expect(currentCodexQuota(j.quota,"2026-11-02T00:00:00Z")).toHaveLength(0);
+ expect(j.quota[0].health).toBeUndefined(); // the cached journal remains immutable
+ expect(currentCodexQuota(j.quota,"2026-10-30T00:00:00Z")).toHaveLength(0);
+ reduceCodex(j,{type:"event_msg",timestamp:"2026-11-01T01:01:00Z",payload:{type:"token_count",rate_limits:{limit_id:"codex",primary:{used_percent:0,window_minutes:10080,resets_at:reset}}}});
+ const fresh=currentCodexQuota(j.quota,"2026-11-01T01:02:00Z");expect(fresh[0].health).toBe("fresh");expect(fresh[0].used_ratio.value).toBe(0);
 });

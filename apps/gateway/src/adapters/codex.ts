@@ -58,13 +58,27 @@ export function reduceCodex(journal: CodexJournal, row: ObjectValue) {
     // Other model-specific buckets must not replace the account's Codex allowance.
     // An absent rate_limits field is no new observation; retain the last valid one until expiry.
     if (limits.limit_id !== "codex" || at === null) return;
-    journal.quotaObservedAt = at;
-    journal.quota = [limits.primary, limits.secondary].flatMap(value => {
+    const quota:QuotaWindow[] = [limits.primary, limits.secondary].flatMap(value => {
       const w = object(value), used = number(w.used_percent), minutes = number(w.window_minutes);
-      if (used === null || used > 100 || minutes === null || minutes === 0) return [];
+      if (used === null || used > 100 || minutes === null || minutes === 0 || !Number.isInteger(minutes)) return [];
       return [{ window_minutes: minutes, used_ratio: measured(used / 100, `codex.rate_limits.${String(limits.limit_id ?? "unknown")}`, at), resets_at: typeof w.resets_at === "number" ? iso(w.resets_at * 1000) : null }];
     });
+    // Empty rate-limit events are not an observation of zero/unknown allowance.
+    if(quota.length){journal.quotaObservedAt=at;journal.quota=quota;}
   }
+}
+
+/** Keep an explicitly historical reading while its known allowance window remains open. */
+export function currentCodexQuota(windows:QuotaWindow[],now:string):QuotaWindow[]{
+  const clock=Date.parse(now);
+  return windows.flatMap(window=>{
+    const observed=window.used_ratio.observed_at,age=observed?clock-Date.parse(observed):NaN;
+    const reset=window.resets_at?Date.parse(window.resets_at):NaN;
+    if(!Number.isFinite(age)||age< -120000||(window.resets_at&&(!Number.isFinite(reset)||clock>=reset)))return [];
+    const stale=age>=15*60_000;
+    if(stale&&!Number.isFinite(reset))return [];
+    return [{...structuredClone(window),health:stale?"stale" as const:"fresh" as const}];
+  });
 }
 
 export class CodexAdapter {
@@ -118,8 +132,7 @@ export class CodexAdapter {
         if (old) sessions.push({ ...structuredClone(old), observation_health: "stale" });
       }
     }
-    // The reset boundary and a bounded observation age are required for a current quota display.
-    quota = quota.filter(w => w.used_ratio.observed_at && Date.parse(now) - Date.parse(w.used_ratio.observed_at) < 15 * 60_000 && (!w.resets_at || Date.parse(now) < Date.parse(w.resets_at)));
+    quota = currentCodexQuota(quota,now);
     return { sessions, count: threads.length, quota };
   }
 }

@@ -7,11 +7,11 @@ export type ThemeId = typeof themeIds[number];
 export interface Settings {
   schema_version: 1;
   revision: number;
-  appearance: { theme: ThemeId; animations_enabled: boolean };
+  appearance: { theme: ThemeId; animations_enabled: boolean; show_scheduled_tasks:boolean };
   device: { brightness: number; volume: number; sleep_after_seconds: number; transport: "auto" | "usb" | "wifi" | "relay"; relay_url: string; follow_host_brightness:boolean; follow_host_sleep:boolean };
 }
 const initial = (): Settings => ({ schema_version: 1, revision: 0,
-  appearance: { theme: "neon", animations_enabled: true },
+  appearance: { theme: "neon", animations_enabled: true, show_scheduled_tasks:true },
   device: { brightness: 75, volume: 50, sleep_after_seconds: 300, transport: "auto", relay_url: "", follow_host_brightness:true, follow_host_sleep:true } });
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_settings");
@@ -28,10 +28,14 @@ function merged(current: Settings, input: unknown): Settings {
   if (!Object.keys(patch).length) throw new Error("empty_settings");
   const result = structuredClone(current);
   if (patch.appearance !== undefined) {
-    const a = record(patch.appearance); keys(a, ["theme", "animations_enabled"]);
+    const a = record(patch.appearance); keys(a, ["theme", "animations_enabled", "show_scheduled_tasks"]);
     if (a.theme !== undefined) {
       if (!themeIds.includes(a.theme as ThemeId)) throw new Error("invalid_theme");
       result.appearance.theme = a.theme as ThemeId;
+    }
+    if(a.show_scheduled_tasks!==undefined){
+      if(typeof a.show_scheduled_tasks!=="boolean")throw new Error("invalid_schedule_visibility");
+      result.appearance.show_scheduled_tasks=a.show_scheduled_tasks;
     }
     if (a.animations_enabled !== undefined) {
       if (typeof a.animations_enabled !== "boolean") throw new Error("invalid_motion");
