@@ -4,7 +4,7 @@ import AppKit
 struct Appearance: Codable, Equatable { var theme: Theme = .neon; var animations_enabled = true; var show_scheduled_tasks = true; var agent_ids = ["codex", "grok", "deepseek"] }
 struct DeviceSettings: Codable, Equatable {
     var brightness = 75, volume = 50, sleep_after_seconds = 300
-    var transport = "auto", relay_url = ""
+    var transport = "usb", relay_url = ""
     var follow_host_brightness = true, follow_host_sleep = true
 }
 struct Preferences: Codable, Equatable { var schema_version = 1, revision = 0; var appearance = Appearance(); var device = DeviceSettings() }
@@ -23,6 +23,7 @@ struct RemoteConnectionStatus: Codable, Equatable {
     var relay_url: String?; var configured: Bool; var relay_connected: Bool; var device_connected: Bool; var data_fresh: Bool
     var last_applied_at: String?; var error: String?; var usb: BoardUSB?; var provision_pending: Bool
     var lan: LanConnectionStatus?; var active_transport: String?; var relay_device_connected: Bool?; var link_pending: Bool?
+    var connectionLabel: String { guard data_fresh else { return "等待屏幕连接" }; switch active_transport {case "usb":return "USB 已连接";case "wifi":return "局域网已连接";default:return "云中转已连接"} }
 }
 
 @MainActor final class CompanionModel: ObservableObject {
@@ -331,7 +332,7 @@ struct ControlPanel: View {
             .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("好") { model.error = nil } } message: { Text(model.error ?? "") }
     }
     private var subtitle: String {
-        switch section { case .overview: return "本机采集、屏幕预览与设备连接"; case .assistant: return "汇总最近对话，查看项目进展与关注事项"; case .appearance: return "选择屏幕风格，设置会自动保存并同步至预览"; case .agents: return "选择 1–3 个 Agent，自动保存并同步到屏幕"; case .device: return "调整亮度，设置跟随 Mac 熄屏与唤醒"; case .connection: return "给屏幕配网，选择局域网或异地连接"; case .integrations: return "连接你的模型服务，按需启用余额查询" }
+        switch section { case .overview: return "本机采集、屏幕预览与设备连接"; case .assistant: return "汇总最近对话，查看项目进展与关注事项"; case .appearance: return "选择屏幕风格，设置会自动保存并同步至预览"; case .agents: return "选择 1–3 个 Agent，自动保存并同步到屏幕"; case .device: return "调整亮度，设置跟随 Mac 熄屏与唤醒"; case .connection: return "默认 USB 即插即用，也可配置无线连接"; case .integrations: return "连接你的模型服务，按需启用余额查询" }
     }
     private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 18) { Text(title).font(.headline); content() }.padding(22).frame(maxWidth: .infinity, alignment: .leading).background(CompanionSurface(theme:model.theme))
@@ -339,8 +340,8 @@ struct ControlPanel: View {
     private var overview: some View {
         VStack(spacing: 20) {
             panel("本机服务") { Label(model.message, systemImage: model.online ? "checkmark.circle.fill" : "circle.dotted").foregroundStyle(model.online ? model.theme.success : model.theme.muted); Text("只读查看本机的 Codex、Grok Bot、DeepSeek Harness 和 Claude Code 记录；没有记录的来源会显示为未发现。").foregroundStyle(model.theme.muted) }
-            panel("开始使用") { Text("先打开屏幕预览体验界面；连接硬件时，在“连接”中配网。AI 助手与余额查询可在“API 设置”中按需开启。").foregroundStyle(model.theme.muted); Button("配置 API") { model.selected = .integrations } }
-            panel("桌面屏幕") { Label(model.connectionStatus?.data_fresh == true ? (model.connectionStatus?.active_transport == "wifi" ? "已通过局域网直连" : "已通过云中转连接") : "等待设备连接", systemImage: "display"); Text("同一 Wi-Fi 可直连 Mac，异地可用自建中转；支持跟随主屏亮度与熄屏。").foregroundStyle(model.theme.muted); Button("配置连接") { model.selected = .connection } }
+            panel("开始使用") { Text("用 USB 数据线连接屏幕即可同步，也可先打开屏幕预览体验。AI 助手与余额查询可在“API 设置”中按需开启。").foregroundStyle(model.theme.muted); Button("配置 API") { model.selected = .integrations } }
+            panel("桌面屏幕") { Label(model.connectionStatus?.connectionLabel ?? "等待屏幕连接", systemImage: "display"); Text("默认通过 USB 连接；也可选择局域网直连或自建云中转。支持跟随主屏亮度与熄屏。").foregroundStyle(model.theme.muted); Button("配置连接") { model.selected = .connection } }
         }
     }
     private var agentSelection: some View {

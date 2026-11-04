@@ -17,17 +17,17 @@ struct ConnectionPanel: View {
     var body:some View {
         VStack(alignment:.leading,spacing:20) {
             card("连接屏幕") {
-                Label(status?.data_fresh == true ? (status?.active_transport == "wifi" ? "局域网已连接" : "云中转已连接") : "等待屏幕连接",systemImage:status?.data_fresh == true ? "checkmark.circle.fill" : "display").foregroundStyle(status?.data_fresh == true ? model.theme.success : model.theme.muted)
+                Label(status?.connectionLabel ?? "等待屏幕连接",systemImage:status?.data_fresh == true ? "checkmark.circle.fill" : "display").foregroundStyle(status?.data_fresh == true ? model.theme.success : model.theme.muted)
                 Picker("连接方式",selection:Binding(get:{model.preferences.device.transport},set:{model.update(["device":["transport":$0]])})) {
-                    Text("自动（优先局域网）").tag("auto");Text("仅局域网").tag("wifi");Text("仅云中转").tag("relay");Text("USB 调试").tag("usb")
+                    Text("USB（默认）").tag("usb");Text("自动（优先 USB）").tag("auto");Text("仅局域网").tag("wifi");Text("仅云中转").tag("relay")
                 }
-                Text("同一网络直接连接 Mac；异地使用自建中转。首次配网和主机配对需要 USB。").font(.caption).foregroundStyle(model.theme.muted)
+                Text("接上 USB 后自动同步，无需配网。局域网和云中转可按需切换；自动模式会优先使用 USB。").font(.caption).foregroundStyle(model.theme.muted)
             }
             card("1 · 给屏幕连接 Wi-Fi") {
                 TextField("Wi-Fi 名称（2.4GHz）",text:$ssid).textFieldStyle(.roundedBorder)
                 SecureField("Wi-Fi 密码",text:$password).textFieldStyle(.roundedBorder)
                 Button(model.networkSaving ? "正在提交…" : "通过 USB 配网") {model.provisionWiFi(ssid:ssid,password:password);password=""}.disabled(status?.usb == nil || ssid.isEmpty || password.utf8.count<8 || model.networkSaving)
-                if status?.usb == nil {Text("尚未检测到 USB 配网桥接。首次使用请按安装文档运行 ./scripts/device bridge --network-only。").font(.caption).foregroundStyle(model.theme.muted)}
+                if status?.usb == nil {Text("请用数据线连接屏幕的 P4 USB 接口，应用会自动检测。").font(.caption).foregroundStyle(model.theme.muted)}
                 Text("密码只通过 USB 下发，保存在板子本机。").font(.caption).foregroundStyle(model.theme.muted)
             }
             card("2 · 局域网配对") {

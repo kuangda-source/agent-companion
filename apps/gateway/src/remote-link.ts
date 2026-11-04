@@ -52,7 +52,11 @@ export class RemoteLink {
   }
   status(){
     let usb:Record<string,unknown>|null=null;
-    try {const s=JSON.parse(readFileSync(this.runtime+"/board-bridge.status.json","utf8")) as Record<string,unknown>;if(Date.now()-Date.parse(String(s.updated_at))<8000)usb={port:s.port,mode:s.mode,provision:s.provision??null,network:s.network??null,link_config:s.link_config??null,display:s.display??null,data_fresh:Date.now()-Date.parse(String(s.last_ack_utc))>=-2000&&Date.now()-Date.parse(String(s.last_ack_utc))<8000};}catch{}
+    try {
+      const s=JSON.parse(readFileSync(this.runtime+"/board-bridge.status.json","utf8")) as Record<string,unknown>;
+      const age=Date.now()-Date.parse(String(s.updated_at)),ackAge=Date.now()-Date.parse(String(s.last_ack_utc));
+      if(age>=-2000&&age<8000&&s.usb_connected!==false&&typeof s.port==='string')usb={port:s.port,mode:s.mode,provision:s.provision??null,network:s.network??null,link_config:s.link_config??null,display:s.display??null,last_ack_utc:s.last_ack_utc,last_ack:s.last_ack,error:s.error??null,data_fresh:s.mode==='usb_viewer'&&ackAge>=-2000&&ackAge<8000};
+    }catch{}
     return {...this.statusValue,last_command:this.feed.lastCommand,data_fresh:this.statusValue.relay_connected&&this.statusValue.device_connected&&!!this.statusValue.last_applied_at&&Date.now()-Date.parse(this.statusValue.last_applied_at)<8000,device_connected:this.statusValue.device_connected&&this.statusValue.relay_connected,usb,provision_pending:existsSync(this.runtime+"/wifi-pending.json"),link_pending:existsSync(this.runtime+"/link-pending.json"),settings_applied:false};
   }
   async response(req:Request){

@@ -44,19 +44,19 @@ DeepSeek Key 只用于官方 `https://api.deepseek.com/user/balance`，约每分
 
 编译**不会自动刷写**。首次请用工具链的 esptool 对实际端口读取芯片信息并备份完整 32MiB Flash（备份含个人 NVS，勿上传）。固件在 `.build/device-rev3_x/`，确认备份、芯片 profile 与供电后，使用该目录生成的 `flash_args` 经 IDF `idf.py -C apps/device -B .build/device-rev3_x -p <实际端口> flash` 刷写。使用相同 SDKCONFIG/profile 的工具链环境；勿 `erase-flash`，以免清除 Wi-Fi/配对或原厂数据。不要刷别人的带 NVS 镜像。
 
-### 首次配网
+### USB 连接（默认）
 
-1. 打开 Mac 应用。另一个终端启动 USB 配网桥接（当前版本还需此命令，未内置自动 USB 管理）：
+打开 Mac 应用，用可传数据的线连接 P4 USB 接口。应用会自动检测一块 Espressif USB Serial/JTAG 设备，并在确认板端协议后同步。连接页显示“USB 已连接”表示已经收到屏幕应用回执，接上线本身不算同步成功。无需填写 Wi-Fi 或服务器。
 
-```bash
-./scripts/device bridge --network-only --port /dev/cu.usbmodemXXXX --runtime "$HOME/Library/Application Support/AgentCompanion"
-```
+“连接方式”默认 USB；自动模式优先 USB，拔线后可使用已经配置好的局域网或中转。只选局域网/云中转时，USB 仅处理配网、配对与屏幕操作。连接多块同类开发板时，不自动选板，请先只保留一块。烧录或使用其他串口工具前先退出 Mac 应用，避免串口被占用。
 
-实际参数以 `./scripts/device bridge --help` 为准。先使用 `ls /dev/cu.usb*` 确认端口。串口一次只能由一个进程占用；关闭 IDF monitor 后再启动桥接。
+### Wi-Fi 连接（可选）
+
+1. 保持屏幕通过 USB 连接，打开应用的“连接”页。
 
 2. “连接”页填写 2.4GHz Wi-Fi 名称和密码，点击“通过 USB 配网”。iPhone 热点请开启最大兼容性。密码通过 USB 下发并保存在板端 NVS。
 3. Mac 与板子处于同一网络时，选择 Mac 的局域网地址，点击“通过 USB 配对主机”。私有 CA 和独立设备令牌经 USB 配对，后续走 `wss://<Mac>:8737/v1/device`。
 4. 等待“局域网已连接”及实时回执。地址变化时重新配对，或使用网络内可解析的 `.local` 主机名。防火墙需允许设备访问 8737；勿开放到公网。
 5. 异地才需要按 [中转文档](RELAY.md) 部署自己的服务器并下发中转配置。
 
-首次配网桥接打开 USB 可能重启板子，属硬件串口行为。USB 模式为调试能力；日常推荐局域网/中转。数据新鲜度由板端应用 ACK 判断，不能仅凭 Wi-Fi 已连接或 WebSocket 已连接认定数据同步。
+打开 USB 可能使板子重启一次，应用会等待它恢复。数据新鲜度由板端应用 ACK 判断，不能仅凭串口打开、Wi-Fi 或 WebSocket 已连接认定数据同步。开发用 `./scripts/device bridge` 仍保留；不要与应用的自动桥接同时占用串口。

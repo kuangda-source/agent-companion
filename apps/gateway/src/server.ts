@@ -8,6 +8,7 @@ import { Assistant,assistantResponse } from "./assistant.ts";
 import type { RemoteLink } from "./remote-link.ts";
 import type { CredentialStore } from "./credentials.ts";
 import type { LanLink } from "./lan-link.ts";
+import {connectionState} from "./connection-state.ts";
 
 /** Environment bootstrap only: no real collector, account, model, or audio. */
 export function createMockGateway(port = 8736, animate = false, phase = 0, settings = new SettingsStore()) {
@@ -122,11 +123,11 @@ export function createLiveGateway(collector: Collector, token: string, port = 87
         return Response.json(settings.display.status(settings.current().device),{headers:{"Cache-Control":"no-store"}});
       }
       if(path==="/api/v1/connection/lan"&&request.method==="POST"&&lan)return lan.provision(request,!!remote?.status().usb);
-      if(path==="/api/v1/connection"&&request.method==="GET"&&remote){const r=remote.status(),l=lan?.status();return Response.json({...r,lan:l,relay_device_connected:r.device_connected,device_connected:r.device_connected||!!l?.device_connected,data_fresh:r.data_fresh||!!l?.data_fresh,active_transport:l?.data_fresh?"wifi":r.data_fresh?"relay":null,last_applied_at:l?.data_fresh?l.last_applied_at:r.last_applied_at,last_applied_id:l?.data_fresh?l.last_applied_id:r.last_applied_id},{headers:{"Cache-Control":"no-store"}});}
+      if(path==="/api/v1/connection"&&request.method==="GET"&&remote)return Response.json(connectionState(remote.status(),lan?.status()),{headers:{"Cache-Control":"no-store"}});
       if(path.startsWith("/api/v1/connection") && remote)return remote.response(request);
       if(path.startsWith("/api/v1/assistant") && assistant)return assistantResponse(request,assistant);
       if (path === "/api/v1/settings") return settingsResponse(request, settings);
-      if (path === "/api/v1/device" && request.method === "GET") return Response.json({ ...settings.deviceStatus(), ...(lan?.status().data_fresh||remote?.status().data_fresh ? { connected:true, state:"connected_readonly", transport:lan?.status().data_fresh?"wifi":"relay", capabilities:["snapshot","assistant_feed","themes","session_detail","usage_statistics","scheduled_tasks"] } : {}) }, { headers: { "Cache-Control": "no-store" } });
+      if (path === "/api/v1/device" && request.method === "GET") {const connection=remote?connectionState(remote.status(),lan?.status()):null;return Response.json({ ...settings.deviceStatus(), ...(connection?.data_fresh ? { connected:true, state:"connected_readonly", transport:connection.active_transport, capabilities:["snapshot","assistant_feed","themes","session_detail","usage_statistics","scheduled_tasks"] } : {}) }, { headers: { "Cache-Control": "no-store" } });}
       if (path === "/api/v1/device/apply" && request.method === "POST") return error("device_not_connected", 409);
       if (request.method !== "GET") return error("read_only", 405);
       let response: Response | undefined;

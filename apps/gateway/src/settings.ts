@@ -13,7 +13,7 @@ export interface Settings {
 }
 const initial = (): Settings => ({ schema_version: 1, revision: 0,
   appearance: { theme: "neon", animations_enabled: true, show_scheduled_tasks:true, agent_ids:[...DEFAULT_AGENT_IDS] },
-  device: { brightness: 75, volume: 50, sleep_after_seconds: 300, transport: "auto", relay_url: "", follow_host_brightness:true, follow_host_sleep:true } });
+  device: { brightness: 75, volume: 50, sleep_after_seconds: 300, transport: "usb", relay_url: "", follow_host_brightness:true, follow_host_sleep:true } });
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_settings");
   return value as Record<string, unknown>;

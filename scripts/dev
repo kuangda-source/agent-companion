@@ -9,6 +9,7 @@ case "$action" in
   setup) exec python3 tools/dev/setup.py "$@" ;;
   doctor) exec python3 tools/dev/doctor.py "$@" ;;
   build)
+    python tools/dev/build_usb.py
     python tools/dev/build_font.py
     python tools/assets/build_pets.py
     cmake -S . -B .build/simulator -DCMAKE_BUILD_TYPE=Debug

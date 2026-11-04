@@ -9,6 +9,7 @@ import { MastraAssistantEngine } from "./assistant-mastra.ts";
 import { RemoteLink } from "./remote-link.ts";
 import { CredentialStore } from "./credentials.ts";
 import { LanLink } from "./lan-link.ts";
+import { USBLink } from "./usb-link.ts";
 
 const port = Number(process.env.PORT ?? 8736);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
@@ -41,10 +42,12 @@ const remote=mock?undefined:new RemoteLink(runtime,state,settings,assistant);
 const lan=mock?undefined:new LanLink(runtime,state,settings,assistant);
 const credentials=mock?undefined:new CredentialStore(runtime,service=>{if(service==="deepseek")state.resetBalance();});
 const gateway = mock ? createMockGateway(port, process.argv.includes("--animate"),phase,settings) : createLiveGateway(state, token!, port,2000,settings,assistant,remote,lan,credentials);
+const usb=mock?undefined:new USBLink(runtime,state,settings,assistant);
 if (token) { await writeFile(tokenFile, token, { mode: 0o600 }); await chmod(tokenFile, 0o600); }
 console.log(`${mock ? "MOCK" : "LIVE"} Gateway: ${gateway.server.url}api/v1/health`);
 console.log(mock ? "Explicit simulation; no real records." : "Read-only local sessions; conversation endpoints require the local runtime token.");
 async function stop() {
+  usb?.close();
   remote?.close();
   lan?.close();
   gateway.close();
