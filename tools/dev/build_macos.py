@@ -36,7 +36,7 @@ shutil.copy(ROOT/".build/agent-companion-usb",usb_staged)
 os.replace(usb_staged,usb)
 for binary in (resources / "bin").iterdir():
     if binary.is_file(): subprocess.run(["codesign", "--force", "--sign", "-", str(binary)], check=True)
-info = {"CFBundleIdentifier": "cloud.kuangda.agentcompanion", "CFBundleName": "AgentCompanion", "CFBundleDisplayName": "Agent Companion", "CFBundleExecutable": "AgentCompanion", "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.4.7", "CFBundleVersion": "29", "LSMinimumSystemVersion": "13.0", "NSHighResolutionCapable": True, "NSLocalNetworkUsageDescription": "连接同一局域网中的 Agent Companion 桌面屏幕。", "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True}}
+info = {"CFBundleIdentifier": "cloud.kuangda.agentcompanion", "CFBundleName": "AgentCompanion", "CFBundleDisplayName": "Agent Companion", "CFBundleExecutable": "AgentCompanion", "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.4.8", "CFBundleVersion": "30", "LSMinimumSystemVersion": "13.0", "NSHighResolutionCapable": True, "NSLocalNetworkUsageDescription": "连接同一局域网中的 Agent Companion 桌面屏幕。", "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True}}
 iconset=ROOT/".cache/macos/AppIcon.iconset"
 subprocess.run(["swift",str(ROOT/"apps/macos/AppIcon.swift"),str(iconset)],check=True)
 subprocess.run(["iconutil","--convert","icns",str(iconset),"--output",str(resources/"AppIcon.icns")],check=True)

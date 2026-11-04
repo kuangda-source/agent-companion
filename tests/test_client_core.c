@@ -92,6 +92,23 @@ int main(void)
     held_view.base_expression=AC_PET_RUNNING;ac_pet_player_set(&held,&held_view,&held_pack,10000);
     held_view.base_expression=AC_PET_ERROR;ac_pet_player_set(&held,&held_view,&held_pack,10001);
     assert(ac_pet_player_sample(&held,&held_pack,10001).frame_id==0);
+    /* Unknown telemetry can have neutral ambient frames without becoming idle,
+       running or celebrating. Repeated updates keep the animation clock. */
+    static const uint16_t neutral_frames[]={0,1,2,3,4,5,6,7,8,9,10,11};
+    ac_pet_pack_t neutral=pack;neutral.unique_frame_count=12;
+    neutral.clips[AC_PET_UNKNOWN]=(ac_pet_clip_t){.frame_ids=neutral_frames,.frame_count=12,.fps=4,.loop=true,.motion=AC_PET_MOTION_NONE};
+    ac_pet_player_t ambient={0};ac_pet_view_t unknown=view(AC_PET_UNKNOWN);
+    unknown.observation_health=AC_OBSERVATION_UNKNOWN;
+    ac_pet_player_set(&ambient,&unknown,&neutral,1000);
+    for(unsigned i=0;i<12;i++){
+        uint64_t now=1000+i*250;ac_pet_player_set(&ambient,&unknown,&neutral,now);
+        ac_pet_sample_t pose=ac_pet_player_sample(&ambient,&neutral,now);
+        assert(pose.expression==AC_PET_UNKNOWN&&pose.frame_id==i);
+        assert(pose.x==0&&pose.y==0&&pose.rotation==0&&pose.scale_x==256&&pose.scale_y==256);
+    }
+    assert(ac_pet_player_sample(&ambient,&neutral,4000).frame_id==0);
+    unknown.animation_enabled=false;ac_pet_player_set(&ambient,&unknown,&neutral,4100);
+    assert(ac_pet_player_sample(&ambient,&neutral,9000).frame_id==0);
     ac_agent_t before={.health=AC_OBSERVATION_FRESH,.session_count=1},after={.health=AC_OBSERVATION_FRESH,.session_count=1};
     strcpy(before.sessions[0].id,"codex:one"); before.sessions[0].state=AC_STATE_RUNNING;
     after.sessions[0]=before.sessions[0]; after.sessions[0].state=AC_STATE_COMPLETED; after.sessions[0].quality=AC_QUALITY_CONFIRMED;

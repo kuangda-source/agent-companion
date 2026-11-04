@@ -9,7 +9,7 @@ import sys
 
 from PIL import Image
 from validate_pet import validate_manifest, validate_files
-from pet_policy import compiled_loop, catalog_budget
+from pet_policy import compiled_clip, compiled_loop, catalog_budget
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "generated/pets"
@@ -62,7 +62,7 @@ for agent in ["codex", "claude", "deepseek", "grok"]:
     prefix = "ac_pack_" + agent
     lines.append("static const lv_image_dsc_t *const " + prefix + "_images[] = {" + ",".join("&" + name for name in names) + "};")
     for state in STATES:
-        clip = data["clips"].get(state)
+        clip = compiled_clip(agent, state, data["clips"])
         if clip:
             ids = ",".join(str(frame_ids[path]) for path in clip["frames"])
             lines.append("static const uint16_t " + prefix + "_" + state + "[] = {" + ids + "};")
@@ -73,7 +73,7 @@ for agent in ["codex", "claude", "deepseek", "grok"]:
         ".clips={",
     ])
     for state in STATES:
-        clip = data["clips"].get(state)
+        clip = compiled_clip(agent, state, data["clips"])
         if clip:
             lines.append("[AC_PET_" + state.upper() + "]={.frame_ids=" + prefix + "_" + state +
                 ",.frame_count=" + str(len(clip["frames"])) + ",.fps=" + str(clip["fps"]) +
@@ -105,9 +105,21 @@ for agent in ["codex", "claude", "deepseek", "grok"]:
     if pixels > 2.5 * 1024 * 1024:
         raise ValueError("pet pixel budget exceeded")
     total_pixels += pixels
+    overrides = {}
+    for state, original in data["clips"].items():
+        clip = compiled_clip(agent, state, data["clips"])
+        change = {}
+        if clip["frames"] != original["frames"]:
+            change.update(visual_source="idle", source_frames=len(original["frames"]),
+                          compiled_frames=len(clip["frames"]), state_preserved="unknown")
+        loop = compiled_loop(agent, state, clip["loop"])
+        if original["loop"] != loop:
+            change.update(source_loop=original["loop"], compiled_loop=loop)
+        if change:
+            overrides[state] = change
     reports.append({"agent": agent, "asset_id": asset_id, "source_asset_id":data["asset_id"], "status": "PASS",
                     "unique_frames": len(names), "pixel_payload_bytes": pixels,
-                    "playback_overrides":{state:{"source_loop":clip["loop"],"compiled_loop":compiled_loop(agent,state,clip["loop"])} for state,clip in data["clips"].items() if clip["loop"]!=compiled_loop(agent,state,clip["loop"])}})
+                    "playback_overrides": overrides})
 
 budget=catalog_budget([pack["pixel_payload_bytes"] for pack in reports if pack["status"]=="PASS"])
 lines.append("const ac_pet_assets_t *ac_pet_assets_for_agent(ac_agent_id_t agent) {")

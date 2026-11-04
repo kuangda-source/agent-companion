@@ -4,6 +4,18 @@ MAX_VISIBLE_PETS = 3
 VISIBLE_PIXEL_BUDGET = 8 * 1024 * 1024
 
 
+def compiled_clip(agent, state, clips):
+    clip = clips.get(state)
+    idle = clips.get("idle", {})
+    # Neutral ambient movement is presentation only: the player's expression and
+    # observed Agent status remain UNKNOWN. Preserve any future authored clip.
+    if (agent == "grok" and state == "unknown" and clip
+            and len(clip["frames"]) == 1 and len(idle.get("frames", [])) > 1
+            and idle.get("loop") and idle.get("motion", "none") == "none"):
+        return {**idle, "frames": list(idle["frames"]), "motion": "none", "effect": "none"}
+    return clip
+
+
 def compiled_loop(agent, state, source_loop):
     # Grok's supplied v1 manifest must keep error.loop=true for its source schema.
     # The host requirement is a short response followed by a final-frame hold.

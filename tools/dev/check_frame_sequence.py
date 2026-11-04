@@ -11,8 +11,10 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("captures", type=Path)
 parser.add_argument("--agent", choices=["codex", "claude", "deepseek", "grok"], required=True)
 parser.add_argument("--state", default="running")
-parser.add_argument("--still", action="store_true")
-parser.add_argument("--hold-last", action="store_true", help="Verify a non-looping pose stays on its compiled final frame after one second")
+mode = parser.add_mutually_exclusive_group()
+mode.add_argument("--still", action="store_true")
+mode.add_argument("--hold-last", action="store_true", help="Verify a non-looping pose stays on its compiled final frame after one second")
+mode.add_argument("--min-distinct", type=int, help="Check sampled physical captures contain at least this many distinct compiled frames")
 parser.add_argument("--report", type=Path, required=True)
 args = parser.parse_args()
 registry = (ROOT / "generated/pets/ac_pet_registry.c").read_text()
@@ -38,7 +40,8 @@ draw.rectangle((86, 0, 111, 25), fill=0)
 draw.rectangle((90, 80, 111, 111), fill=0)
 draw.rectangle((0, 102, 111, 111), fill=0)
 agent_row = {"codex":0,"claude":1,"deepseek":2,"grok":1}[args.agent]
-paths = [path for path in sorted(args.captures.glob("frame-*.bmp")) if int(path.stem.split("-")[-1]) >= (60 if args.hold_last else 30)]
+threshold = 0 if args.min_distinct else 60 if args.hold_last else 30
+paths = [path for path in sorted(args.captures.glob("frame-*.bmp")) if int(path.stem.split("-")[-1]) >= threshold]
 if not paths:
     raise RuntimeError("No captures after initial connection")
 origin = None
@@ -58,8 +61,11 @@ for path in paths:
         rows.append({"capture_frame": int(path.stem.split("-")[-1]), "clip_frame": frame, "error": round(error, 5)})
 seen = sorted({row["clip_frame"] for row in rows})
 expected = [0] if args.still else [len(ids)-1] if args.hold_last else list(range(len(ids)))
-if seen != expected:
+if args.min_distinct is not None:
+    if not 2 <= args.min_distinct <= len(ids) or len(seen) < args.min_distinct:
+        raise RuntimeError(f"Too few distinct frames: observed {seen}, requested {args.min_distinct}")
+elif seen != expected:
     raise RuntimeError(f"Unexpected frame sequence: observed {seen}, expected {expected}")
-report = {"agent": args.agent, "state": args.state, "mode": "reduced_motion" if args.still else "hold_last" if args.hold_last else "animation", "method": "opaque-pixel match to compiled RGB565A8 arrays", "origin": origin, "observed_clip_frames": seen, "max_pixel_error": max(row["error"] for row in rows), "samples": rows}
+report = {"agent": args.agent, "state": args.state, "mode": "reduced_motion" if args.still else "hold_last" if args.hold_last else "sampled_animation" if args.min_distinct else "animation", "method": "opaque-pixel match to compiled RGB565A8 arrays", "origin": origin, "observed_clip_frames": seen, "max_pixel_error": max(row["error"] for row in rows), "samples": rows}
 args.report.write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps({key: value for key, value in report.items() if key != "samples"}))
