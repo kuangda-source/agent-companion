@@ -22,7 +22,7 @@ target_sources(lvgl PRIVATE "${CMAKE_SOURCE_DIR}/generated/fonts/ac_font_sans_13
 target_sources(lvgl PRIVATE "${CMAKE_SOURCE_DIR}/generated/fonts/ac_font_comic_13.c" "${CMAKE_SOURCE_DIR}/generated/fonts/ac_font_comic_16.c")
 
 file(GLOB PET_RESOURCE_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/generated/pets/*.c")
-add_library(agent_companion_core STATIC packages/client-core/src/ac_model.c packages/client-core/src/ac_pet_player.c)
+add_library(agent_companion_core STATIC packages/client-core/src/ac_model.c packages/client-core/src/ac_pet_player.c packages/client-core/src/ac_wifi.c)
 target_include_directories(agent_companion_core PUBLIC packages/client-core/include)
 target_compile_options(agent_companion_core PRIVATE -Wall -Wextra -Werror)
 add_library(agent_companion_ui STATIC
@@ -30,6 +30,7 @@ add_library(agent_companion_ui STATIC
     packages/ui/src/ac_pet_widget.c
     packages/ui/src/ac_usage_panel.c
     packages/ui/src/ac_assistant_panel.c
+    packages/ui/src/ac_wifi_panel.c
     packages/ui/src/ac_neon.c
     packages/ui/src/ac_theme.c
     packages/ui/src/ac_bootstrap_screen.c)
@@ -75,3 +76,12 @@ add_executable(test_relay_url tests/test_relay_url.c apps/device/main/ac_relay_u
 target_include_directories(test_relay_url PRIVATE apps/device/main)
 target_compile_options(test_relay_url PRIVATE -Wall -Wextra -Werror)
 add_test(NAME relay_url COMMAND test_relay_url)
+
+add_executable(test_wifi_credentials tests/test_wifi_credentials.c)
+target_link_libraries(test_wifi_credentials PRIVATE agent_companion_core)
+target_compile_options(test_wifi_credentials PRIVATE -Wall -Wextra -Werror)
+add_test(NAME wifi_credentials COMMAND test_wifi_credentials)
+add_executable(test_ui_wifi tests/test_ui_wifi.c)
+target_link_libraries(test_ui_wifi PRIVATE agent_companion_ui)
+target_compile_options(test_ui_wifi PRIVATE -Wall -Wextra -Werror)
+add_test(NAME ui_wifi COMMAND test_ui_wifi)

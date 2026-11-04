@@ -13,6 +13,7 @@ else()
         ${AC_PETS} ${AC_FONTS} ${AC_UI}
         "${AC_ROOT}/packages/client-core/src/ac_model.c"
         "${AC_ROOT}/packages/client-core/src/ac_pet_player.c"
+        "${AC_ROOT}/packages/client-core/src/ac_wifi.c"
         INCLUDE_DIRS "." "${AC_ROOT}/packages/client-core/include" "${AC_ROOT}/packages/ui/include"
         REQUIRES esp_psram esp_hw_support spi_flash esp_timer esp_driver_usb_serial_jtag esp_driver_ledc json nvs_flash esp_netif esp_event esp_wifi esp-tls espressif__esp_websocket_client
         waveshare__esp32_p4_wifi6_touch_lcd_7b)

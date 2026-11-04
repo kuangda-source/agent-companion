@@ -97,7 +97,7 @@ export class RemoteLink {
     try {c=this.config();this.statusValue.configured=!!c?.enabled;this.statusValue.relay_url=c?.url??null;}catch{this.statusValue.error="invalid_relay_config";return;}
     const signature=JSON.stringify(c);
     if(signature!==this.activeConfig){if(this.socket)this.discard(this.socket,null);this.activeConfig=signature;this.nextConnect=0;this.failures=0;}
-    if(!c?.enabled||["usb","wifi"].includes(this.settings.current().device.transport)){if(this.socket)this.discard(this.socket,null);return;}
+    if(!c?.enabled||this.settings.current().device.transport==="wifi"){if(this.socket)this.discard(this.socket,null);return;}
     if(this.socket?.readyState===WebSocket.OPEN){if(this.clock()-this.lastInbound>=20000){this.discard(this.socket,"relay_response_timeout");return;}this.heartbeat(this.socket);this.sendView();return;}
     if(this.connecting||this.clock()<this.nextConnect)return;
     this.connecting=true;

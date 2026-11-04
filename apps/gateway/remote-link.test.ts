@@ -37,12 +37,12 @@ test("application heartbeat reports the pair and expires a silent socket without
  }finally{a?.close();b?.close();c?.close();r.close();}
 });
 
-test("Mac reconnects a silent OPEN socket and never treats heartbeat as a device apply receipt",async()=>{
+test("USB-priority keeps relay available, reconnects a silent OPEN socket and requires a device apply receipt",async()=>{
  const {mkdtempSync,writeFileSync,rmSync}=await import("node:fs");const {tmpdir}=await import("node:os");const {SettingsStore}=await import("./src/settings.ts");const {MockState}=await import("./src/scenarios.ts");
  const dir=mkdtempSync(tmpdir()+"/ac-link-test-");writeFileSync(dir+"/remote-link.json",JSON.stringify({enabled:true,url:"wss://test.invalid/v1/link",mac_token:mac,device_token:device}));
  let connections=0,probes=0,now=100000;
  const silent=Bun.serve({hostname:"127.0.0.1",port:0,fetch(req,server){if(server.upgrade(req))return;return new Response("upgrade",{status:426});},websocket:{open(){connections++;},message(_ws,raw){if(JSON.parse(String(raw)).kind==="heartbeat")probes++;}}});
- const settings=new SettingsStore();settings.update({device:{transport:'relay'}});
+ const settings=new SettingsStore();expect(settings.current().device.transport).toBe('usb');
  const link=new RemoteLink(dir,new MockState(false,0),settings,undefined,{clock:()=>now,tickMs:5,socket:(_url,headers)=>new WebSocket(silent.url.toString().replace("http:","ws:"),{headers})});
  try{
   for(let i=0;i<100&&!link.status().relay_connected;i++)await Bun.sleep(5);

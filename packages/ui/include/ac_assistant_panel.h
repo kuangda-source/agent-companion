@@ -9,7 +9,7 @@ typedef enum {
     AC_ASSISTANT_UNCONFIGURED, AC_ASSISTANT_READY,
     AC_ASSISTANT_UPDATING, AC_ASSISTANT_FAILED, AC_ASSISTANT_OFFLINE
 } ac_assistant_status_t;
-typedef enum { AC_TOOL_PELICAN, AC_TOOL_CONNECTIVITY } ac_tool_id_t;
+typedef enum { AC_TOOL_PELICAN, AC_TOOL_CONNECTIVITY, AC_TOOL_WIFI } ac_tool_id_t;
 typedef void (*ac_tool_request_fn)(ac_tool_id_t tool);
 
 /* UI view only, not a network DTO. Oldest to newest; the newest eight are copied.

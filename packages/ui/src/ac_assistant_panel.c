@@ -19,13 +19,13 @@ static bool mock_mode, rebuilding;
 static panel_kind_t opened;
 static lv_obj_t *compact, *compact_preview, *compact_status, *compact_time;
 static lv_obj_t *overlay, *message_dialog, *tools_dialog, *body, *message_info, *latest_button, *latest_label;
-static lv_obj_t *message_close, *tools_close, *tool_buttons[2];
+static lv_obj_t *message_close, *tools_close, *tool_buttons[3];
 static lv_obj_t *refresh_button;
 static void (*request_refresh)(void);
 static lv_group_t *screen_group, *modal_group;
 static lv_obj_t *previous_focus;
 static ac_tool_request_fn request_tool;
-static ac_tool_id_t tool_ids[2]={AC_TOOL_PELICAN,AC_TOOL_CONNECTIVITY};
+static ac_tool_id_t tool_ids[3]={AC_TOOL_WIFI,AC_TOOL_PELICAN,AC_TOOL_CONNECTIVITY};
 
 static void hide(lv_obj_t *obj,bool hidden)
 {
@@ -242,17 +242,16 @@ void ac_assistant_panel_create(lv_obj_t *screen,bool mock,ac_tool_request_fn too
     refresh_button=button(message_dialog,650,356,162,40,AC_NEON_CYAN);label(refresh_button,14,10,"更新简报",AC_NEON_CYAN,134,13);lv_obj_add_event_cb(refresh_button,refresh_requested,LV_EVENT_CLICKED,NULL);
     lv_obj_set_style_opa(refresh_button,LV_OPA_40,LV_STATE_DISABLED);
     latest_button=button(message_dialog,824,356,154,40,AC_NEON_CYAN);latest_label=label(latest_button,12,10,"查看最新",AC_NEON_CYAN,134,13);lv_obj_add_event_cb(latest_button,latest,LV_EVENT_CLICKED,NULL);
-    tools_dialog=ac_neon_box(overlay,676,252,336,250,AC_NEON_SURFACE);lv_obj_add_flag(tools_dialog,LV_OBJ_FLAG_CLICKABLE);
+    tools_dialog=ac_neon_box(overlay,676,236,336,266,AC_NEON_SURFACE);lv_obj_add_flag(tools_dialog,LV_OBJ_FLAG_CLICKABLE);
     label(tools_dialog,18,14,"工具",AC_NEON_CYAN,250,20);
     tools_close=button(tools_dialog,286,10,32,32,AC_NEON_CYAN);label(tools_close,9,4,"×",AC_NEON_TEXT,24,16);lv_obj_add_event_cb(tools_close,closed,LV_EVENT_CLICKED,NULL);
-    const char *titles[]={"鹈鹕测试","连通性检测"};
-    for(int i=0;i<2;++i) {
+    const char *titles[]={"Wi-Fi 网络","鹈鹕测试","连通性检测"};
+    for(int i=0;i<3;++i) {
         tool_buttons[i]=button(tools_dialog,14,58+62*i,308,54,i?AC_NEON_CYAN:AC_NEON_MAGENTA);
-        label(tool_buttons[i],14,7,titles[i],AC_NEON_TEXT,190,16);label(tool_buttons[i],14,31,"服务待接入",AC_NEON_MUTED,230,13);
+        label(tool_buttons[i],14,7,titles[i],AC_NEON_TEXT,190,16);label(tool_buttons[i],14,31,i?"服务待接入":"在屏幕上联网，无需连接 Mac",AC_NEON_MUTED,280,13);
         label(tool_buttons[i],278,16,"›",AC_NEON_MUTED,20,16);lv_obj_add_event_cb(tool_buttons[i],tool_clicked,LV_EVENT_CLICKED,&tool_ids[i]);
     }
-    label(tools_dialog,28,195,"更多功能",AC_NEON_MUTED,180,16);label(tools_dialog,28,222,"后续从这里扩展",AC_NEON_MUTED,250,13);
-    lv_obj_t *modal_controls[]={message_close,latest_button,refresh_button,tools_close,tool_buttons[0],tool_buttons[1]};
+    lv_obj_t *modal_controls[]={message_close,latest_button,refresh_button,tools_close,tool_buttons[0],tool_buttons[1],tool_buttons[2]};
     for(size_t i=0;i<sizeof(modal_controls)/sizeof(modal_controls[0]);++i) {lv_group_add_obj(modal_group,modal_controls[i]);lv_obj_add_event_cb(modal_controls[i],modal_key,LV_EVENT_KEY,NULL);}
     hide(message_dialog,true);hide(tools_dialog,true);hide(overlay,true);refresh_compact();
 }

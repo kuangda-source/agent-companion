@@ -5,6 +5,7 @@
 #include "ac_gateway_client.h"
 #include "ac_neon.h"
 #include "ac_assistant_panel.h"
+#include "ac_wifi_panel.h"
 #include "ac_window_theme.h"
 
 #include <stdio.h>
@@ -87,7 +88,7 @@ int main(int argc, char **argv)
     int smoke_usage=0,smoke_usage_filter=-1;
     bool smoke_usage_switch=false,smoke_usage_back=false;
     bool smoke_keyboard=false, smoke_parallax=false, smoke_theme=false, smoke_theme_dismiss=false, smoke_theme_open=false;
-    bool smoke_assistant=false, smoke_tools=false, smoke_assistant_update=false, smoke_assistant_scroll=false, smoke_assistant_escape=false;
+    bool smoke_assistant=false, smoke_tools=false, smoke_assistant_update=false, smoke_assistant_scroll=false, smoke_assistant_escape=false,smoke_wifi=false;
     bool smoke_assistant_long=false;
     const char *forced_theme=NULL;
     uint64_t settings_revision=UINT64_MAX;
@@ -108,6 +109,7 @@ int main(int argc, char **argv)
         else if(strcmp(argv[i], "--smoke-actions") == 0) smoke_actions = true;
         else if(strcmp(argv[i], "--smoke-assistant") == 0) smoke_assistant=true;
         else if(strcmp(argv[i], "--smoke-tools") == 0) smoke_tools=true;
+        else if(strcmp(argv[i], "--smoke-wifi") == 0) smoke_wifi=true;
         else if(strcmp(argv[i], "--smoke-assistant-update") == 0) smoke_assistant_update=true;
         else if(strcmp(argv[i], "--smoke-assistant-scroll") == 0) {smoke_assistant_scroll=true;smoke_assistant=true;}
         else if(strcmp(argv[i], "--smoke-assistant-escape") == 0) {smoke_assistant_escape=true;smoke_assistant=true;}
@@ -233,6 +235,7 @@ int main(int argc, char **argv)
             click.button.state=down?SDL_PRESSED:SDL_RELEASED;
             click.button.x=450;click.button.y=168;SDL_PushEvent(&click);
         }
+        if(smoke_wifi&&mock&&frames==60)ac_wifi_panel_open();
         if((smoke_assistant || smoke_tools) && (frames==30 || frames==34)) {
             SDL_Event click={0};bool down=frames==30;click.type=down?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
             click.button.button=SDL_BUTTON_LEFT;click.button.state=down?SDL_PRESSED:SDL_RELEASED;

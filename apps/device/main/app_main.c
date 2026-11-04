@@ -19,6 +19,7 @@
 #include "ac_device_decode.h"
 #include "ac_theme.h"
 #include "ac_network.h"
+#include "ac_wifi_panel.h"
 #include "freertos/queue.h"
 #include <math.h>
 #if !CONFIG_LV_USE_RLE || !CONFIG_LV_BIN_DECODER_RAM_LOAD || !CONFIG_LV_FONT_FMT_TXT_LARGE
@@ -68,6 +69,8 @@ static void apply_feed(const ac_assistant_feed_t *f){
 }
 static void tick(lv_timer_t *timer){
     (void)timer;uint64_t now=millis();ac_bootstrap_screen_tick(now);
+    static uint64_t wifi_updated;static ac_wifi_status_t wifi;
+    if(ac_wifi_panel_visible()&&now-wifi_updated>=250){wifi_updated=now;ac_network_wifi_status(&wifi);ac_wifi_panel_update(&wifi);}
     if(!connected)ac_bootstrap_screen_connection_hint(ac_network_label());
     if(connected&&now-last_received>8000){connected=false;ac_bootstrap_screen_connection_lost();last_feed->status=AC_ASSISTANT_OFFLINE;apply_feed(last_feed);event("disconnected",NULL,NULL);}
 }
@@ -93,7 +96,7 @@ static void apply_packet(input_packet_t packet,ac_snapshot_t *snapshot,ac_assist
             if(cJSON_IsString(kind)){
                 if(!packet.remote&&!strcmp(kind->valuestring,"provision")){if(!ac_network_provision(o))event("provision_rejected",NULL,NULL);}
                 else if(!packet.remote&&!strcmp(kind->valuestring,"link_config")){if(!ac_network_configure_link(o))event("provision_rejected",NULL,NULL);}
-                else if(!packet.remote&&!strcmp(kind->valuestring,"capture")){lv_draw_buf_t *screen=NULL;if(bsp_display_lock(2000)){if(cJSON_IsTrue(get(o,"schedules")))ac_bootstrap_screen_show_schedules(true);screen=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);bsp_display_unlock();}if(screen)send_screen(screen);}
+                else if(!packet.remote&&!strcmp(kind->valuestring,"capture")){lv_draw_buf_t *screen=NULL;if(bsp_display_lock(2000)){if(cJSON_IsTrue(get(o,"schedules")))ac_bootstrap_screen_show_schedules(true);const cJSON *wifi=get(o,"wifi");if(cJSON_IsTrue(wifi))ac_wifi_panel_open();else if(cJSON_IsFalse(wifi))ac_wifi_panel_close();screen=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);bsp_display_unlock();}if(screen)send_screen(screen);}
                 cJSON_Delete(o);return;
             }
             const cJSON *clock=get(o,"sent_at"),*wire=get(o,"id");
@@ -166,7 +169,8 @@ void app_main(void){
     ac_bootstrap_screen_create(true,false,request_detail);ac_bootstrap_screen_theme_handler(request_theme);ac_assistant_panel_refresh_handler(request_refresh);apply_feed(last_feed);
     lv_timer_create(tick,16,NULL);lv_display_add_event_cb(display,refreshed,LV_EVENT_REFR_READY,NULL);
     lv_indev_t *input=NULL;while((input=lv_indev_get_next(input)))if(lv_indev_get_type(input)==LV_INDEV_TYPE_POINTER){lv_indev_add_event_cb(input,touch,LV_EVENT_PRESSED,NULL);lv_indev_add_event_cb(input,touch,LV_EVENT_RELEASED,NULL);}
-    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.15");
+    ac_wifi_panel_handlers(ac_network_scan,ac_network_join_local);
+    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.16");
     incoming=xQueueCreate(2,sizeof(input_packet_t));assert(incoming);
     xTaskCreate(apply_task,"ac_apply",12288,NULL,4,NULL);
     ac_network_init(submit);

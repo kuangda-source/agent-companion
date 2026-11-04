@@ -9,7 +9,7 @@ import {MockState} from './src/scenarios.ts';
 import type {Collector} from './src/state.ts';
 function message(ws:WebSocket,predicate:(p:Record<string,unknown>)=>boolean){return new Promise<Record<string,unknown>>((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('device message timeout')),4000);const handler=(e:MessageEvent)=>{const p=JSON.parse(String(e.data)) as Record<string,unknown>;if(predicate(p)){clearTimeout(timer);ws.removeEventListener('message',handler);resolve(p);}};ws.addEventListener('message',handler);});}
 test('local WSS verifies CA/host, requires a separate screen token, hides management routes and requires applied ACK',async()=>{
- const dir=mkdtempSync(join(tmpdir(),'ac-lan-')),mock=new MockState(false,0),settings=new SettingsStore();settings.update({device:{transport:'wifi'}});
+ const dir=mkdtempSync(join(tmpdir(),'ac-lan-')),mock=new MockState(false,0),settings=new SettingsStore();expect(settings.current().device.transport).toBe('usb');
  const collector:Collector={current:()=>({...mock.current(),data_source:'live',generated_at:new Date().toISOString()}),refresh:async()=>({...mock.current(),data_source:'live',generated_at:new Date().toISOString()}),detail:id=>mock.detail(id)};
  const assistant=new Assistant(collector,dir);const lan=new LanLink(dir,collector,settings,assistant,0);let ws:WebSocket|undefined;
  try{

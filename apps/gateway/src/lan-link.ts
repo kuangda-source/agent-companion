@@ -53,7 +53,7 @@ export class LanLink {
  }
  private tick(){
   if(this.closed)return;
-  const enabled=['auto','wifi'].includes(this.settings.current().device.transport);
+  const enabled=['auto','usb','wifi'].includes(this.settings.current().device.transport);
   if(!enabled){this.stopServer();return;}
   const host=hostname().replace(/\.local$/i,'')+'.local',hosts=[...new Set(['127.0.0.1',...(localHost(host)?[host]:[]),this.credentials.host,...lanAddresses().map(x=>x.host)])].sort();const signature=hosts.join(',');
   if(!this.server&&performance.now()<this.nextStart)return;
@@ -90,7 +90,7 @@ export class LanLink {
  }
  public pushView(){this.sendView();}
  private sendView(){const v=this.feed.encode();if(this.feed.error)this.error=this.feed.error;if(this.peer&&v&&this.peer.getBufferedAmount()<192*1024){this.peer.send(v.text);this.feed.sent(v.id,v.display);}}
- status(){const port=this.server?.port??this.port;return {enabled:['auto','wifi'].includes(this.settings.current().device.transport),listening:!!this.server,url:`wss://${this.credentials.host}:${port}/v1/device`,endpoints:lanAddresses().map(x=>({...x,url:`wss://${x.host}:${port}/v1/device`})),device_connected:!!this.peer,data_fresh:!!this.peer&&this.lastAck!==null&&Date.now()-this.lastAck<8000,last_applied_at:this.lastAck?new Date(this.lastAck).toISOString():null,last_applied_id:this.ackId,error:this.error,last_command:this.feed.lastCommand,certificate_sha256:existsSync(join(this.directory,'ca.pem'))?createHash('sha256').update(readFileSync(join(this.directory,'ca.pem'))).digest('hex'):null};}
+ status(){const port=this.server?.port??this.port;return {enabled:['auto','usb','wifi'].includes(this.settings.current().device.transport),listening:!!this.server,url:`wss://${this.credentials.host}:${port}/v1/device`,endpoints:lanAddresses().map(x=>({...x,url:`wss://${x.host}:${port}/v1/device`})),device_connected:!!this.peer,data_fresh:!!this.peer&&this.lastAck!==null&&Date.now()-this.lastAck<8000,last_applied_at:this.lastAck?new Date(this.lastAck).toISOString():null,last_applied_id:this.ackId,error:this.error,last_command:this.feed.lastCommand,certificate_sha256:existsSync(join(this.directory,'ca.pem'))?createHash('sha256').update(readFileSync(join(this.directory,'ca.pem'))).digest('hex'):null};}
  async provision(req:Request,usbAvailable:boolean){
   try{
    if(!usbAvailable)throw new Error('usb_bridge_required');if(!req.headers.get('content-type')?.startsWith('application/json'))throw new Error('json_required');const raw=await req.text();if(raw.length>256)throw new Error('request_too_large');const body:unknown=JSON.parse(raw);if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('invalid_request');const o=body as Record<string,unknown>;

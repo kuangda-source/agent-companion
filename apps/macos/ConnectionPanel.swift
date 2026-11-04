@@ -18,10 +18,10 @@ struct ConnectionPanel: View {
         VStack(alignment:.leading,spacing:20) {
             card("连接屏幕") {
                 Label(status?.connectionLabel ?? "等待屏幕连接",systemImage:status?.data_fresh == true ? "checkmark.circle.fill" : "display").foregroundStyle(status?.data_fresh == true ? model.theme.success : model.theme.muted)
-                Picker("连接方式",selection:Binding(get:{model.preferences.device.transport},set:{model.update(["device":["transport":$0]])})) {
-                    Text("USB（默认）").tag("usb");Text("自动（优先 USB）").tag("auto");Text("仅局域网").tag("wifi");Text("仅云中转").tag("relay")
+                Picker("连接方式",selection:Binding(get:{model.preferences.device.transport == "auto" ? "usb" : model.preferences.device.transport},set:{model.update(["device":["transport":$0]])})) {
+                    Text("USB 优先（默认）").tag("usb");Text("仅局域网").tag("wifi");Text("仅云中转").tag("relay")
                 }
-                Text("接上 USB 后自动同步，无需配网。局域网和云中转可按需切换；自动模式会优先使用 USB。").font(.caption).foregroundStyle(model.theme.muted)
+                Text("接上 USB 后优先同步；离开主机时，通过已配置的局域网或中转连接。新环境可在屏幕的“工具 → Wi-Fi 网络”中直接联网。").font(.caption).foregroundStyle(model.theme.muted)
             }
             card("1 · 给屏幕连接 Wi-Fi") {
                 TextField("Wi-Fi 名称（2.4GHz）",text:$ssid).textFieldStyle(.roundedBorder)
