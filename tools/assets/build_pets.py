@@ -9,6 +9,7 @@ import sys
 
 from PIL import Image
 from validate_pet import validate_manifest, validate_files
+from pet_policy import compiled_loop, catalog_budget
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "generated/pets"
@@ -76,7 +77,7 @@ for agent in ["codex", "claude", "deepseek", "grok"]:
         if clip:
             lines.append("[AC_PET_" + state.upper() + "]={.frame_ids=" + prefix + "_" + state +
                 ",.frame_count=" + str(len(clip["frames"])) + ",.fps=" + str(clip["fps"]) +
-                ",.loop=" + str(clip["loop"]).lower() + ",.motion=" + MOTION[clip.get("motion", "none")] +
+                ",.loop=" + str(compiled_loop(agent,state,clip["loop"])).lower() + ",.motion=" + MOTION[clip.get("motion", "none")] +
                 ",.effect=" + EFFECT[clip.get("effect", "none")] + "},")
     lines.append("}};")
     blink_ref = "NULL"
@@ -104,11 +105,11 @@ for agent in ["codex", "claude", "deepseek", "grok"]:
     if pixels > 2.5 * 1024 * 1024:
         raise ValueError("pet pixel budget exceeded")
     total_pixels += pixels
-    reports.append({"agent": agent, "asset_id": asset_id, "status": "PASS",
-                    "unique_frames": len(names), "pixel_payload_bytes": pixels})
+    reports.append({"agent": agent, "asset_id": asset_id, "source_asset_id":data["asset_id"], "status": "PASS",
+                    "unique_frames": len(names), "pixel_payload_bytes": pixels,
+                    "playback_overrides":{state:{"source_loop":clip["loop"],"compiled_loop":compiled_loop(agent,state,clip["loop"])} for state,clip in data["clips"].items() if clip["loop"]!=compiled_loop(agent,state,clip["loop"])}})
 
-if total_pixels > 8 * 1024 * 1024:
-    raise ValueError("pet pixel budget exceeded")
+budget=catalog_budget([pack["pixel_payload_bytes"] for pack in reports if pack["status"]=="PASS"])
 lines.append("const ac_pet_assets_t *ac_pet_assets_for_agent(ac_agent_id_t agent) {")
 lines.append("static const ac_pet_assets_t *const packs[AC_AGENT_COUNT]={" + ",".join(registry) + "};")
 lines.append("return agent >= 0 && agent < AC_AGENT_COUNT ? packs[agent] : NULL; }")
@@ -118,5 +119,5 @@ if not registry_source.exists() or registry_source.read_text() != content:
     registry_source.write_text(content)
 (ROOT / "reports").mkdir(exist_ok=True)
 (ROOT / "reports/pet-build.json").write_text(json.dumps({"packs": reports,
-    "pixel_payload_bytes": total_pixels, "format": "LVGL9.5.0 RGB565A8", "hardware": "NOT_VERIFIED"}, indent=2) + "\n")
+    "pixel_payload_bytes": total_pixels, "budget":budget, "format": "LVGL9.5.0 RGB565A8", "hardware": "NOT_VERIFIED"}, indent=2) + "\n")
 print("Pet resources ready:", total_pixels, "pixel bytes")

@@ -81,6 +81,17 @@ int main(void)
     ac_pet_player_t independent={0}; v=view(AC_PET_RUNNING); ac_pet_player_set(&independent,&v,&pack,2000);
     assert(ac_pet_player_sample(&independent,&pack,2250).frame_id==1);
     assert(player.expression==AC_PET_UNKNOWN);
+    /* Compiled Grok error plays its four frames once; repeated views/selection do
+       not restart it. Leaving and re-entering error does restart the response. */
+    ac_pet_pack_t held_pack=pack;held_pack.clips[AC_PET_ERROR].loop=false;held_pack.clips[AC_PET_ERROR].fps=8;
+    ac_pet_player_t held={0};ac_pet_view_t held_view=view(AC_PET_ERROR);
+    ac_pet_player_set(&held,&held_view,&held_pack,1000);
+    for(unsigned i=0;i<4;++i)assert(ac_pet_player_sample(&held,&held_pack,1000+i*125).frame_id==i);
+    held_view.selected=true;ac_pet_player_set(&held,&held_view,&held_pack,2000);
+    assert(ac_pet_player_sample(&held,&held_pack,9000).frame_id==3);
+    held_view.base_expression=AC_PET_RUNNING;ac_pet_player_set(&held,&held_view,&held_pack,10000);
+    held_view.base_expression=AC_PET_ERROR;ac_pet_player_set(&held,&held_view,&held_pack,10001);
+    assert(ac_pet_player_sample(&held,&held_pack,10001).frame_id==0);
     ac_agent_t before={.health=AC_OBSERVATION_FRESH,.session_count=1},after={.health=AC_OBSERVATION_FRESH,.session_count=1};
     strcpy(before.sessions[0].id,"codex:one"); before.sessions[0].state=AC_STATE_RUNNING;
     after.sessions[0]=before.sessions[0]; after.sessions[0].state=AC_STATE_COMPLETED; after.sessions[0].quality=AC_QUALITY_CONFIRMED;
