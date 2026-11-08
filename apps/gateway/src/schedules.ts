@@ -1,11 +1,19 @@
-/** Read-only scheduler metadata. Never reads prompts or creates/runs jobs. */
+/** Read-only scheduler metadata. Never projects prompts or creates/runs jobs. */
 import { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { ScheduledTasks, ScheduledTask, Session } from "../../../packages/protocol/src/index.ts";
 interface Row {id:string;name:string;status:string;next_run_at:number|null;last_run_at:number|null;kind:string;target_thread_id:string|null;run_thread:string|null}
 const date=(n:number|null)=>typeof n==="number"&&Number.isFinite(n)&&n>=0?new Date(n).toISOString():null;
+/** The local config can record a pause before the legacy SQLite mirror catches up. */
+function locallyPaused(home:string,id:string):boolean {
+ if(!/^[a-zA-Z0-9_-]+$/.test(id))return false;
+ try{
+  const config=Bun.TOML.parse(readFileSync(join(home,".codex/automations",id,"automation.toml"),"utf8")) as Record<string,unknown>;
+  return config.id===id&&config.status==="PAUSED";
+ }catch{return false;} // Missing or temporarily unreadable configs retain the database fallback.
+}
 export class ScheduleReader {
  private last=0;
  private value:ScheduledTasks={status:"unavailable",observed_at:null,as_of_epoch:0,sources:[],tasks:[]};
@@ -23,17 +31,19 @@ export class ScheduleReader {
     FROM automations a WHERE a.status='ACTIVE' ORDER BY COALESCE(a.next_run_at,9223372036854775807),a.updated_at DESC LIMIT 256`).all();
    const tp=join(this.home,".codex/state_5.sqlite");if(existsSync(tp))threads=new Database(tp,{readonly:true,create:false});
    const seen=new Set<string>();const nearest:Row[]=[];
-   for(const row of rows){const key=row.target_thread_id??row.run_thread??row.id;if(seen.has(key))continue;seen.add(key);nearest.push(row);if(nearest.length>=32)break;}
+   for(const row of rows){if(locallyPaused(this.home,row.id))continue;const key=row.target_thread_id??row.run_thread??row.id;if(seen.has(key))continue;seen.add(key);nearest.push(row);if(nearest.length>=32)break;}
    const tasks:ScheduledTask[]=nearest.map(r=>{
     const id=r.target_thread_id??r.run_thread;let title:string|null=null;
     if(id&&threads)title=threads.query<{name:string|null},[string]>("SELECT name FROM threads WHERE id=?").get(id)?.name??null;
     return {id:"codex:automation:"+r.id,agent_id:"codex",title:r.name.trim()||"未命名定时任务",kind:r.kind==="cron"?"cron":r.kind==="heartbeat"?"heartbeat":"unknown",status:r.status==="ACTIVE"?"active":r.status==="PAUSED"?"paused":"unknown",next_run_at:r.status==="ACTIVE"?date(r.next_run_at):null,last_run_at:date(r.last_run_at),session_id:id?"codex:rollout:"+id:null,thread_title:title,source:"codex.sqlite.automations.next_run_at"};
    });
-   sources[0]={agent_id:"codex",quality:"confirmed",note:"仅显示启用任务；每个对话保留最近一次计划，只读不触发"};
+   sources[0]={agent_id:"codex",quality:"confirmed",note:"仅显示启用任务，本机配置已暂停则隐藏；每个对话保留最近一次计划，只读不触发"};
    this.value={status:"ready",observed_at:new Date(now).toISOString(),as_of_epoch:now/1000,sources,tasks};
   }catch{
    sources[0]={agent_id:"codex",quality:"unknown",note:"调度记录暂时不可读；保留上次信息"};
-   this.value={...this.value,status:"failed",as_of_epoch:now/1000,sources};
+   // A read failure must not resurrect a task that the user has explicitly paused.
+   const tasks=this.value.tasks.filter(t=>!locallyPaused(this.home,t.id.slice("codex:automation:".length)));
+   this.value={...this.value,status:"failed",as_of_epoch:now/1000,sources,tasks};
   }finally{threads?.close();db?.close();}
   return this.value;
  }
