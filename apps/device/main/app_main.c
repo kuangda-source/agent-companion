@@ -170,7 +170,7 @@ void app_main(void){
     lv_timer_create(tick,16,NULL);lv_display_add_event_cb(display,refreshed,LV_EVENT_REFR_READY,NULL);
     lv_indev_t *input=NULL;while((input=lv_indev_get_next(input)))if(lv_indev_get_type(input)==LV_INDEV_TYPE_POINTER){lv_indev_add_event_cb(input,touch,LV_EVENT_PRESSED,NULL);lv_indev_add_event_cb(input,touch,LV_EVENT_RELEASED,NULL);}
     ac_wifi_panel_handlers(ac_network_scan,ac_network_join_local);
-    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.18");
+    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.19");
     incoming=xQueueCreate(2,sizeof(input_packet_t));assert(incoming);
     xTaskCreate(apply_task,"ac_apply",12288,NULL,4,NULL);
     ac_network_init(submit);

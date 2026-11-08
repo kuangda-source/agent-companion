@@ -18,6 +18,10 @@ static ac_assistant_status_t status;
 static bool mock_mode, rebuilding;
 static panel_kind_t opened;
 static lv_obj_t *compact, *compact_preview, *compact_status, *compact_time;
+static lv_obj_t *compact_position, *compact_next;
+static lv_timer_t *carousel_timer;
+static size_t preview_offset, preview_count, preview_slots[MESSAGE_LIMIT];
+static AC_UI_LARGE_BSS char preview_text[4096];
 static lv_obj_t *overlay, *message_dialog, *tools_dialog, *body, *message_info, *latest_button, *latest_label;
 static lv_obj_t *message_close, *tools_close, *tool_buttons[3];
 static lv_obj_t *refresh_button;
@@ -51,6 +55,34 @@ static unsigned unread_count(void)
 {
     unsigned count=0;for(size_t i=0;i<message_count;++i) if(messages[i].unread) ++count;return count;
 }
+static bool same_line(const char *line,size_t length,const char *value)
+{
+    return length==strlen(value)&&memcmp(line,value,length)==0;
+}
+/* Presentation only: keep the full message in the expanded history. Fixed
+ * headings and metadata must not crowd meaningful text out of the preview. */
+static void make_preview(const char *text,char *out,size_t capacity)
+{
+    size_t used=0;out[0]=0;
+    while(*text && used+1<capacity) {
+        const char *end=strchr(text,'\n');if(!end)end=text+strlen(text);
+        const char *next=*end?end+1:end,*begin=text;
+        while(begin<end&&(*begin==' '||*begin=='\t'||*begin=='\r'))++begin;
+        while(end>begin&&(end[-1]==' '||end[-1]=='\t'||end[-1]=='\r'))--end;
+        size_t length=(size_t)(end-begin);
+        bool heading=same_line(begin,length,"项目动态（据公开对话）")||same_line(begin,length,"项目简报（据公开对话）")||
+            same_line(begin,length,"项目简报")||same_line(begin,length,"需要关注")||same_line(begin,length,"暂无新增关注事项")||
+            same_line(begin,length,"来源说法未经独立验收。")||same_line(begin,length,"详情可在项目简报和来源中核对，Agent报告不代表独立验收。")||
+            (length>=strlen("本轮：")&&memcmp(begin,"本轮：",strlen("本轮："))==0);
+        if(length&&!heading) {
+            if(used)out[used++]=' ';
+            size_t remaining=capacity-used-1;
+            if(length>remaining){length=remaining;while(length&&((unsigned char)begin[length]&0xc0)==0x80)--length;}
+            memcpy(out+used,begin,length);used+=length;out[used]=0;
+        }
+        text=next;
+    }
+}
 static void keyboard_group(lv_group_t *group)
 {
     for(lv_indev_t *input=lv_indev_get_next(NULL);input;input=lv_indev_get_next(input))
@@ -77,20 +109,43 @@ static void refresh_compact(void)
     else lv_label_set_text(compact_status,"暂无未读");
     lv_obj_set_style_text_color(compact_status,ac_color(mock_mode?AC_NEON_YELLOW:unread?AC_NEON_GREEN:AC_NEON_MUTED),0);
     lv_obj_set_style_border_opa(compact,unread?LV_OPA_80:LV_OPA_50,0);
-    const char *preview=message_count?messages[message_count-1].text:NULL;
-    if(preview && strncmp(preview,"项目简报",strlen("项目简报"))==0) {
-        const char *attention=strstr(preview,"\n\n需要关注\n\n"),*first=strstr(preview,"\n\n");
-        if(attention)preview=attention+strlen("\n\n需要关注\n\n");else if(first)preview=first+2;
+    preview_count=0;
+    for(size_t i=message_count;i>0;--i) {
+        if(strcmp(messages[i-1].source,"你")==0)continue;
+        make_preview(messages[i-1].text,preview_text,sizeof(preview_text));
+        if(preview_text[0])preview_slots[preview_count++]=i-1;
     }
+    if(preview_offset>=preview_count)preview_offset=0;
+    const cached_message_t *current=preview_count?&messages[preview_slots[preview_offset]]:NULL;
+    if(current)make_preview(current->text,preview_text,sizeof(preview_text));
+    const char *preview=current?preview_text:NULL;
     lv_label_set_text(compact_preview,preview?preview:
         status==AC_ASSISTANT_UNCONFIGURED?"接入模型后，这里显示最新消息；点击展开消息记录。":
         status==AC_ASSISTANT_FAILED?"暂时无法更新消息，保留已有记录。":
         status==AC_ASSISTANT_OFFLINE?"暂时无法连接助手，恢复连接后继续更新。":"项目简报、关注事项和助手回复会显示在这里。");
-    lv_label_set_text(compact_time,message_count?messages[message_count-1].time:"");
+    lv_label_set_text(compact_time,current?current->time:"");
+    if(preview_count)lv_label_set_text_fmt(compact_position,"最新消息 %zu / %zu",preview_offset+1,preview_count);
+    else lv_label_set_text(compact_position,"");
+    if(preview_count>1)lv_obj_remove_state(compact_next,LV_STATE_DISABLED);else lv_obj_add_state(compact_next,LV_STATE_DISABLED);
     lv_label_set_text_fmt(message_info,"%s · 最近 %zu 条消息%s",mock_mode?"MOCK 演示":
         status==AC_ASSISTANT_UNCONFIGURED?"模型未接入":status==AC_ASSISTANT_UPDATING?"正在更新":
         status==AC_ASSISTANT_FAILED?"更新失败，保留记录":status==AC_ASSISTANT_OFFLINE?"离线记录":"AI 助手",message_count,unread?" · 有未读":"");
     lv_label_set_text_fmt(latest_label,unread?"查看最新 · %u":"查看最新",unread);
+}
+static void advance_preview(void)
+{
+    if(preview_count>1){
+        preview_offset=(preview_offset+1)%preview_count;refresh_compact();ac_neon_reveal(compact_preview,1,0);
+        printf("UI assistant_carousel page=%zu count=%zu\n",preview_offset+1,preview_count);fflush(stdout);
+    }
+}
+static void carousel_tick(lv_timer_t *timer)
+{
+    (void)timer;if(opened==CLOSED)advance_preview();
+}
+static void next_preview(lv_event_t *e)
+{
+    lv_event_stop_bubbling(e);advance_preview();if(carousel_timer)lv_timer_reset(carousel_timer);
 }
 static void mark_read(void)
 {
@@ -153,6 +208,8 @@ bool ac_assistant_panel_set_feed(const ac_assistant_feed_view_t *feed)
         if(follow) m->unread=false;
     }
     if(previous_count!=message_count) changed=true;
+    bool latest_changed=message_count&&(!previous_count||strcmp(messages[message_count-1].id,previous[previous_count-1].id)!=0||messages[message_count-1].hash!=previous[previous_count-1].hash);
+    if(latest_changed){preview_offset=0;if(carousel_timer)lv_timer_reset(carousel_timer);}
     refresh_compact();
     if(changed && opened==MESSAGES) render_messages(follow);
     if(changed) {printf("UI assistant_feed count=%zu unread=%u source=%s\n",message_count,unread_count(),mock_mode?"mock":"live");fflush(stdout);}
@@ -163,6 +220,7 @@ bool ac_assistant_panel_close(void)
     if(opened==CLOSED) return false;
     printf("UI %s=closed\n",opened==MESSAGES?"assistant_messages":"tools_drawer");fflush(stdout);
     opened=CLOSED;hide(overlay,true);keyboard_group(screen_group);
+    if(carousel_timer)lv_timer_reset(carousel_timer);
     if(previous_focus && lv_obj_is_valid(previous_focus)) lv_group_focus_obj(previous_focus);
     return true;
 }
@@ -202,7 +260,8 @@ static void icon_draw(lv_event_t *e)
     static const lv_point_t wrench[]={{18,2},{14,3},{11,7},{12,12},{3,21},{3,25},{7,25},{17,15},{21,16},{25,13},{26,8},{22,12},{18,8},{18,2}};
     static const lv_point_t star[]={{14,0},{18,10},{28,14},{18,18},{14,28},{10,18},{0,14},{10,10},{14,0}};
     const lv_point_t *points=tool?wrench:star;size_t count=tool?sizeof(wrench)/sizeof(wrench[0]):sizeof(star)/sizeof(star[0]);
-    int x=bounds.x1+(tool?21:20),y=bounds.y1+(tool?9:23);
+    int height=lv_area_get_height(&bounds);
+    int x=bounds.x1+(tool?21:20),y=bounds.y1+(tool?(height-54)/2:(height-28)/2);
     for(size_t i=0;i+1<count;++i) {
         line.p1=(lv_point_precise_t){x+points[i].x,y+points[i].y};line.p2=(lv_point_precise_t){x+points[i+1].x,y+points[i+1].y};lv_draw_line(lv_event_get_layer(e),&line);
     }
@@ -215,17 +274,21 @@ static lv_obj_t *button(lv_obj_t *parent,int x,int y,int w,int h,uint32_t accent
 void ac_assistant_panel_create(lv_obj_t *screen,bool mock,ac_tool_request_fn tool_request)
 {
     mock_mode=mock;request_tool=tool_request;opened=CLOSED;message_count=0;status=AC_ASSISTANT_UNCONFIGURED;previous_focus=NULL;rebuilding=false;
+    preview_offset=0;preview_count=0;
+    if(carousel_timer)lv_timer_delete(carousel_timer);
     screen_group=lv_group_get_default();modal_group=lv_group_create();lv_group_set_wrap(modal_group,true);
-    compact=button(screen,12,514,916,74,AC_NEON_CYAN);
+    compact=button(screen,12,480,916,108,AC_NEON_CYAN);
     lv_obj_add_event_cb(compact,opened_panel,LV_EVENT_CLICKED,(void *)(uintptr_t)MESSAGES);lv_obj_add_event_cb(compact,icon_draw,LV_EVENT_DRAW_MAIN_END,NULL);
     label(compact,66,11,"AI 助手",AC_NEON_CYAN,82,16);
     compact_status=label(compact,158,14,"",AC_NEON_MUTED,252,13);
     compact_time=label(compact,746,14,"",AC_NEON_MUTED,120,13);
-    compact_preview=label(compact,66,40,"",AC_NEON_TEXT,800,16);lv_obj_set_height(compact_preview,20);
-    label(compact,884,27,"›",AC_NEON_CYAN,20,20);
-    lv_obj_t *tool=button(screen,940,514,72,74,AC_NEON_CYAN);lv_obj_add_event_cb(tool,icon_draw,LV_EVENT_DRAW_MAIN_END,(void *)(uintptr_t)1);
+    compact_position=label(compact,560,14,"",AC_NEON_MUTED,170,13);
+    compact_preview=label(compact,66,34,"",AC_NEON_TEXT,780,16);lv_obj_set_height(compact_preview,66);lv_obj_set_style_text_line_space(compact_preview,3,0);
+    compact_next=button(compact,866,34,36,60,AC_NEON_CYAN);label(compact_next,10,17,"›",AC_NEON_CYAN,20,20);
+    lv_obj_add_event_cb(compact_next,next_preview,LV_EVENT_CLICKED,NULL);lv_obj_set_style_opa(compact_next,LV_OPA_40,LV_STATE_DISABLED);
+    lv_obj_t *tool=button(screen,940,480,72,108,AC_NEON_CYAN);lv_obj_add_event_cb(tool,icon_draw,LV_EVENT_DRAW_MAIN_END,(void *)(uintptr_t)1);
     lv_obj_add_event_cb(tool,opened_panel,LV_EVENT_CLICKED,(void *)(uintptr_t)TOOLS);
-    label(tool,22,47,"工具",AC_NEON_MUTED,40,13);
+    label(tool,22,81,"工具",AC_NEON_MUTED,40,13);
     overlay=lv_obj_create(screen);lv_obj_remove_style_all(overlay);lv_obj_set_size(overlay,1024,600);
     lv_obj_set_style_bg_color(overlay,lv_color_hex(0x000000),0);lv_obj_set_style_bg_opa(overlay,LV_OPA_50,0);
     lv_obj_remove_flag(overlay,LV_OBJ_FLAG_SCROLLABLE);lv_obj_add_flag(overlay,LV_OBJ_FLAG_CLICKABLE);lv_obj_add_event_cb(overlay,backdrop,LV_EVENT_CLICKED,NULL);
@@ -253,7 +316,8 @@ void ac_assistant_panel_create(lv_obj_t *screen,bool mock,ac_tool_request_fn too
     }
     lv_obj_t *modal_controls[]={message_close,latest_button,refresh_button,tools_close,tool_buttons[0],tool_buttons[1],tool_buttons[2]};
     for(size_t i=0;i<sizeof(modal_controls)/sizeof(modal_controls[0]);++i) {lv_group_add_obj(modal_group,modal_controls[i]);lv_obj_add_event_cb(modal_controls[i],modal_key,LV_EVENT_KEY,NULL);}
-    hide(message_dialog,true);hide(tools_dialog,true);hide(overlay,true);refresh_compact();
+    hide(message_dialog,true);hide(tools_dialog,true);hide(overlay,true);
+    carousel_timer=lv_timer_create(carousel_tick,10000,NULL);refresh_compact();
 }
 bool ac_assistant_panel_scroll_at(int x,int y,int delta)
 {
@@ -266,5 +330,6 @@ bool ac_assistant_panel_scroll_at(int x,int y,int delta)
 }
 void ac_assistant_panel_destroy(void)
 {
-    ac_assistant_panel_close();lv_group_delete(modal_group);modal_group=NULL;overlay=NULL;refresh_button=NULL;request_refresh=NULL;
+    ac_assistant_panel_close();if(carousel_timer)lv_timer_delete(carousel_timer);carousel_timer=NULL;
+    lv_group_delete(modal_group);modal_group=NULL;overlay=NULL;refresh_button=NULL;request_refresh=NULL;
 }

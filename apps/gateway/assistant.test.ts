@@ -25,6 +25,16 @@ function completion(payload:Record<string,unknown>,bad=false) {
   const id=bad?"ref_invented":String(e.id),session_id=String(first.session_id),project_id=String(first.project_id);
   return Response.json({model:"fixture-model",usage:{prompt_tokens:100,completion_tokens:50},choices:[{message:{content:JSON.stringify({projects:[{project_id,text:"已报告进展，尚待验收。",source_ids:[id]}],attention:[{text:"需要确认本轮结果。",source_ids:[id]}],sessions:[{session_id,summary:"仍需验收，不发布。",source_ids:[id]}]})}}]});
 }
+test("legacy briefing presentation removes fixed headings and trailing boilerplate without changing stored history",async()=>{
+  const f=fixture(),a=new Assistant(f.collector,f.dir);const db=new Database(join(f.dir,"assistant.sqlite"));
+  try{
+    const legacy="项目动态（据公开对话）\n\n• 合成进展：结果需要复核。\n\n详情可在项目简报和来源中核对，Agent报告不代表独立验收。";
+    db.query("INSERT INTO messages(id,role,kind,text,created_at,refs) VALUES('legacy','assistant','briefing',?,?,'[]')").run(legacy,new Date().toISOString());
+    db.query("INSERT INTO messages(id,role,kind,text,created_at,refs) VALUES('user','user','chat',?,?,'[]')").run(legacy,new Date().toISOString());
+    expect(a.messages()[0].text).toBe("• 合成进展：结果需要复核。");expect(a.messages()[1].text).toBe(legacy);
+    expect(db.query<{text:string},[]>("SELECT text FROM messages WHERE id='legacy'").get()?.text).toBe(legacy);
+  }finally{db.close();await a.shutdown();f.remove();}
+});
 test("public source includes the original goal beyond UI limits and excludes analysis, internal context and keys",async()=>{
   const f=fixture();try{
     const result=await readAssistantSource(f.session,f.source,null,10000);

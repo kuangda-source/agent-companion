@@ -10,6 +10,7 @@ from PIL import Image
 
 ROOT=Path(__file__).resolve().parents[2]
 CACHE=ROOT/'.cache/assistant-bottom-ui'
+CACHE.mkdir(parents=True,exist_ok=True)
 OUT=ROOT/'reports/screenshots/assistant-footer'
 OUT.mkdir(parents=True,exist_ok=True)
 SIM=ROOT/'.build/simulator/agent_companion_sim'
@@ -18,6 +19,7 @@ URL=f'http://127.0.0.1:{PORT}'
 results=[]
 cases=[
     ('neon-home',[],[],True),
+    ('neon-carousel',['--frames','680'],['UI assistant_carousel page=2 count=4'],True),
     ('neon-messages',['--smoke-assistant'],['UI assistant_messages=opened'],True),
     ('neon-tools',['--smoke-tools'],['UI tools_drawer=opened'],True),
     ('arrival-closed',['--smoke-assistant-update'],['count=5 unread=5 source=mock','assistant_feed_accept=1 repeat=1 wrong_source=0'],True),

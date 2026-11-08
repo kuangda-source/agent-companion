@@ -29,6 +29,8 @@ typedef struct {
 void ac_assistant_panel_create(lv_obj_t *screen, bool mock, ac_tool_request_fn tool_request);
 void ac_assistant_panel_refresh_handler(void (*handler)(void));
 bool ac_assistant_panel_set_feed(const ac_assistant_feed_view_t *feed);
+/* Compact view rotates meaningful assistant bodies every 10 seconds. Identical
+ * feed heartbeats preserve the timer; opening history pauses rotation. */
 bool ac_assistant_panel_close(void);
 bool ac_assistant_panel_scroll_at(int x, int y, int delta);
 void ac_assistant_panel_destroy(void);

@@ -250,7 +250,7 @@ int main(int argc, char **argv)
                 {"demo-1","09:36","示例项目 A：本轮修改已报告完成，等待验收。","演示 · 项目进展"},
                 {"demo-2","09:38","示例项目 B：需要确认接口方案，可回到原会话继续处理。","演示 · 关注事项"},
                 {"demo-3","09:40","项目简报会保留关键决定与来源，后续修改会替代旧方案。","演示 · 助手回复"},
-                {"demo-4","09:42","示例项目 B 需要确认方案；示例项目 A 的修改等待验收。","演示 · 最新消息"},
+                {"demo-4","09:42","示例项目 B：需要确认接口方案，可回到原会话继续处理。示例项目 A：本轮修改已报告完成，等待验收；后续修改会替代旧方案，并保留关键决定与来源。","演示 · 最新消息"},
                 {"demo-5","09:45","新的演示消息已到达；阅读旧消息时，列表保留当前位置。","演示 · 新消息"}
             };
             ac_assistant_feed_view_t feed={AC_ASSISTANT_READY,true,updates,sizeof(updates)/sizeof(updates[0])};
@@ -266,7 +266,7 @@ int main(int argc, char **argv)
             ac_assistant_panel_set_feed(&feed);
         }
         if(smoke_actions) {
-            const int at[]={180,210,240,270,300,330};const int xs[]={450,100,976,800,976,800};const int ys[]={550,100,550,340,550,400};
+            const int at[]={180,210,240,270,300,330};const int xs[]={450,100,976,800,976,800};const int ys[]={550,100,550,382,550,444};
             for(size_t i=0;i<sizeof(at)/sizeof(at[0]);++i) if(frames==at[i] || frames==at[i]+4) {
                 SDL_Event click={0};bool down=frames==at[i];click.type=down?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
                 click.button.button=SDL_BUTTON_LEFT;click.button.state=down?SDL_PRESSED:SDL_RELEASED;

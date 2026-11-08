@@ -146,7 +146,8 @@ export class Assistant {
   messages(limit=40):AssistantMessage[] {
     return this.db.query<MessageRow,[number]>("SELECT id,role,kind,text,created_at,refs FROM messages ORDER BY seq DESC LIMIT ?").all(limit).reverse().map(({refs,...m})=>{
       const source_ids=JSON.parse(refs) as string[];
-      return {...m,text:m.text.replace(/ref_[a-f0-9]{24}/g,id=>source_ids.includes(id)?`来源 ${source_ids.indexOf(id)+1}`:id),source_ids};
+      const body=m.kind==='briefing'&&m.role==='assistant'?m.text.replace(/^项目动态（据公开对话）\s*\n+/,'').replace(/\s*详情可在项目简报和来源中核对，Agent报告不代表独立验收。\s*$/,'').trim():m.text;
+      return {...m,text:body.replace(/ref_[a-f0-9]{24}/g,id=>source_ids.includes(id)?`来源 ${source_ids.indexOf(id)+1}`:id),source_ids};
     });
   }
   private usage() {
@@ -386,7 +387,7 @@ export class Assistant {
       const source_ids=[...new Set([...projects,...attention].flatMap(p=>p.source_ids))];
       const body=["项目简报（据公开对话）",...projects.map(p=>p.text),attention.length?"需要关注":"暂无新增关注事项",...attention.map(a=>"• "+a.text),`本轮：${coverage.analyzed}个会话；监控范围：近${coverage.recent_days}天 ${coverage.read}个会话公开节选。${pendingCount>updates.length?`另有${pendingCount-updates.length}个会话等待后续批次。`:""}来源说法未经独立验收。`].join("\n\n");
       const shouldPublish=manual||notices.length>0;
-      const publication:ObserverPublication|undefined=shouldPublish?{text:manual?body:["项目动态（据公开对话）",...notices.map(n=>"• "+n.text),"详情可在项目简报和来源中核对，Agent报告不代表独立验收。"].join("\n\n"),source_ids:manual?source_ids:[...new Set(notices.flatMap(n=>n.source_ids))],...this.operationScope!}:undefined;
+      const publication:ObserverPublication|undefined=shouldPublish?{text:manual?body:notices.map(n=>"• "+n.text).join("\n\n"),source_ids:manual?source_ids:[...new Set(notices.flatMap(n=>n.source_ids))],...this.operationScope!}:undefined;
       this.events.complete(jobs,publication);
       if(publication&&!jobs.length)this.addMessage("assistant","briefing",publication.text,publication.source_ids);
       if(!shouldPublish)this.events.suppressed();

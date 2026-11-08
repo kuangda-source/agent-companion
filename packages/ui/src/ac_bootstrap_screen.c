@@ -168,7 +168,7 @@ static bool agent_visible(int id) {
 }
 static void layout_cards(void) {
     size_t count=current.agent_count; if(count<1||count>AC_VISIBLE_AGENT_LIMIT)return;
-    int height=(442-8*((int)count-1))/(int)count;
+    int height=(408-8*((int)count-1))/(int)count;
     for(int i=0;i<AC_AGENT_COUNT;++i)hide(cards[i],!agent_visible(i));
     for(size_t slot=0;slot<count;++slot){
         int id=current.agent_order[slot],center=(height-112)/2;
@@ -488,14 +488,14 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
         quota_tracks[i]=box(cards[i],282,17,6,108,0x006877); lv_obj_set_style_border_width(quota_tracks[i],0,0); lv_obj_set_style_radius(quota_tracks[i],3,0); lv_obj_set_style_clip_corner(quota_tracks[i],true,0);
         quota_fills[i]=box(quota_tracks[i],0,0,6,108,0x006877); lv_obj_set_style_border_width(quota_fills[i],0,0); lv_obj_set_style_radius(quota_fills[i],3,0);
     }
-    panel=box(screen,324,60,688,442,0x0c1019); panel_title=text(panel,16,14,"",0xe9ffff);
+    panel=box(screen,324,60,688,408,0x0c1019); panel_title=text(panel,16,14,"",0xe9ffff);
     schedule_page=box(panel,564,8,106,30,0x002832);lv_obj_add_flag(schedule_page,LV_OBJ_FLAG_CLICKABLE);text(schedule_page,12,4,"1/1 ›",0x00ffff);ac_neon_interactive(schedule_page,AC_NEON_CYAN);lv_obj_add_event_cb(schedule_page,schedule_next,LV_EVENT_CLICKED,NULL);
     lv_obj_set_style_border_opa(panel,LV_OPA_50,0); ac_neon_rule(panel,14,41,658,AC_NEON_CYAN,LV_OPA_30);
     ac_neon_scanlines(panel);
     const char *headings[]={"会话 / 状态","TIME","IN / OUT","CACHE","CTX"}; int colx[]={18,266,354,474,572};
     for(int i=0;i<5;++i) { columns[i]=text(panel,colx[i],52,headings[i],0x70d6e2); lv_obj_set_style_text_font(columns[i],ac_theme_font(13),0); lv_obj_set_style_text_letter_space(columns[i],ac_theme_tracking(),0); }
     for(int i=0;i<5;++i) {
-        rows[i]=box(panel,12,78+70*i,664,64,0x0c1019); lv_obj_add_flag(rows[i],LV_OBJ_FLAG_CLICKABLE);
+        rows[i]=box(panel,12,78+64*i,664,60,0x0c1019); lv_obj_add_flag(rows[i],LV_OBJ_FLAG_CLICKABLE);
         ac_neon_flat(rows[i]); lv_obj_set_style_border_width(rows[i],1,0); lv_obj_set_style_border_side(rows[i],LV_BORDER_SIDE_BOTTOM,0); ac_neon_interactive(rows[i],AC_NEON_CYAN);
         lv_obj_add_event_cb(rows[i],row_clicked,LV_EVENT_CLICKED,&row_ids[i]);
         row_title[i]=text(rows[i],13,8,"",0xe9ffff); ellipsis(row_title[i],232);
@@ -511,7 +511,7 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
     ac_neon_interactive(back,AC_NEON_CYAN);
     detail_meta=text(panel,16,49,"",0xb8faff); ellipsis(detail_meta,650);
     detail_source=text(panel,16,75,"",0x70d6e2); ellipsis(detail_source,650);
-    detail_body=box(panel,12,104,664,320,0x0a0a0f); lv_obj_add_flag(detail_body,LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE); lv_obj_set_scroll_dir(detail_body,LV_DIR_VER); lv_obj_set_scrollbar_mode(detail_body,LV_SCROLLBAR_MODE_AUTO);
+    detail_body=box(panel,12,104,664,286,0x0a0a0f); lv_obj_add_flag(detail_body,LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE); lv_obj_set_scroll_dir(detail_body,LV_DIR_VER); lv_obj_set_scrollbar_mode(detail_body,LV_SCROLLBAR_MODE_AUTO);
     ac_neon_flat(detail_body); lv_obj_set_style_anim_duration(detail_body,140,0);
     lv_obj_set_style_bg_color(detail_body,ac_color(0x70d6e2),LV_PART_SCROLLBAR); lv_obj_set_style_bg_opa(detail_body,LV_OPA_50,LV_PART_SCROLLBAR); lv_obj_set_style_width(detail_body,3,LV_PART_SCROLLBAR);
     ac_assistant_panel_create(screen,mock,tool_requested);
@@ -521,12 +521,12 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
             {"demo-1","09:36","示例项目 A：本轮修改已报告完成，等待验收。","演示 · 项目进展"},
             {"demo-2","09:38","示例项目 B：需要确认接口方案，可回到原会话继续处理。","演示 · 关注事项"},
             {"demo-3","09:40","项目简报会保留关键决定与来源，后续修改会替代旧方案。","演示 · 助手回复"},
-            {"demo-4","09:42","示例项目 B 需要确认方案；示例项目 A 的修改等待验收。","演示 · 最新消息"}
+            {"demo-4","09:42","示例项目 B：需要确认接口方案，可回到原会话继续处理。示例项目 A：本轮修改已报告完成，等待验收；后续修改会替代旧方案，并保留关键决定与来源。","演示 · 最新消息"}
         };
         ac_assistant_feed_view_t feed={AC_ASSISTANT_READY,true,demo,sizeof(demo)/sizeof(demo[0])};
         ac_assistant_panel_set_feed(&feed);
     }
-    notice=text(screen,348,458,"",0x70d6e2); ellipsis(notice,640); lv_obj_set_height(notice,28);
+    notice=text(screen,348,424,"",0x70d6e2); ellipsis(notice,640); lv_obj_set_height(notice,28);
     lv_obj_set_style_text_font(notice,ac_theme_font(13),0); lv_obj_set_style_pad_left(notice,10,0); lv_obj_set_style_pad_top(notice,5,0);
     lv_obj_set_style_bg_color(notice,ac_color(AC_NEON_BG),0); lv_obj_set_style_bg_opa(notice,LV_OPA_COVER,0);
     lv_obj_set_style_border_color(notice,ac_color(AC_NEON_CYAN),0); lv_obj_set_style_border_width(notice,1,0); lv_obj_set_style_border_opa(notice,LV_OPA_60,0);
