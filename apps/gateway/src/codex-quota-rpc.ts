@@ -27,6 +27,11 @@ export function codexExecutable():string|null{
 
 /** A bounded subprocess is reaped after the single read, including timeout/cancellation. */
 export async function quotaRpc(command:string[],signal:AbortSignal,timeoutMs=12000):Promise<unknown>{
+ return codexReadonlyRpc(command,signal,{method:"account/rateLimits/read"},timeoutMs);
+}
+/** Explicit allowlist: no thread loading/resuming, provider requests or user actions. */
+export async function codexReadonlyRpc(command:string[],signal:AbortSignal,request:{method:"account/rateLimits/read"|"thread/list";params?:Record<string,unknown>},timeoutMs=12000):Promise<unknown>{
+ if(!["account/rateLimits/read","thread/list"].includes(request.method))throw new Error("codex_rpc_method_denied");
  if(signal.aborted)throw new Error("codex_quota_cancelled");
  const child=Bun.spawn(command,{stdin:"pipe",stdout:"pipe",stderr:"ignore"});
  let timedOut=false;
@@ -49,7 +54,7 @@ export async function quotaRpc(command:string[],signal:AbortSignal,timeoutMs=120
     try{data=object(JSON.parse(line));}catch{continue;}
     if(data.id===1&&!initialized){
      if(data.error)throw new Error("codex_quota_initialize_failed");
-     initialized=true;send({method:"initialized",params:{}});send({id:2,method:"account/rateLimits/read"});
+     initialized=true;send({method:"initialized",params:{}});send({id:2,...request});
     }else if(data.id===2&&initialized){
      if(data.error)throw new Error("codex_quota_read_failed");
      return data.result;

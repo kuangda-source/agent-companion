@@ -10,6 +10,8 @@ import { RemoteLink } from "./remote-link.ts";
 import { CredentialStore } from "./credentials.ts";
 import { LanLink } from "./lan-link.ts";
 import { USBLink } from "./usb-link.ts";
+import {VoiceBroadcasts,MacSystemTTS} from "./voice-broadcast.ts";
+import {CodexRuntimeStatusReader} from "./codex-runtime-status.ts";
 
 const port = Number(process.env.PORT ?? 8736);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
@@ -23,7 +25,7 @@ const budgetAmount = Number(process.env.DEEPSEEK_BALANCE_BUDGET_CNY);
 if (process.env.DEEPSEEK_BALANCE_BUDGET_CNY && (!Number.isFinite(budgetAmount) || budgetAmount <= 0)) throw new Error("Invalid DEEPSEEK_BALANCE_BUDGET_CNY");
 const settings = new SettingsStore(mock ? undefined : `${runtime}/settings.json`);
 const quotaReader=mock||probe?undefined:new CodexQuotaReader();
-const state = new LiveState(undefined, mock ? undefined : runtime, budgetAmount > 0 ? { currency: "CNY", amount: budgetAmount } : null,{selectedAgents:()=>settings.current().appearance.agent_ids,quotaRead:quotaReader?(signal)=>quotaReader.read(signal):undefined});
+const state = new LiveState(undefined, mock ? undefined : runtime, budgetAmount > 0 ? { currency: "CNY", amount: budgetAmount } : null,{selectedAgents:()=>settings.current().appearance.agent_ids,quotaRead:quotaReader?(signal)=>quotaReader.read(signal):undefined,codexRuntime:mock||probe?undefined:new CodexRuntimeStatusReader()});
 if (!mock) await state.refresh();
 if (probe) {
   console.log(JSON.stringify({ at: state.current().generated_at, data_source: "live", agents: state.current().agents,
@@ -38,10 +40,12 @@ if (!mock) {
 }
 const mastra=mock?undefined:new MastraAssistantEngine(runtime);
 const assistant=mock?undefined:new Assistant(state,runtime,fetch,{engines:{chat:mastra,briefing:mastra}});
+const voice=mock?undefined:new VoiceBroadcasts(runtime,process.platform==="darwin"?new MacSystemTTS(runtime):undefined);
+if(assistant&&voice){assistant.onImportantChange=(change,id)=>voice.important(change,id);assistant.onSessionResult=(id,text,at)=>voice.enrichCompletion(id,text,at);}
 const remote=mock?undefined:new RemoteLink(runtime,state,settings,assistant);
 const lan=mock?undefined:new LanLink(runtime,state,settings,assistant);
 const credentials=mock?undefined:new CredentialStore(runtime,service=>{if(service==="deepseek")state.resetBalance();});
-const gateway = mock ? createMockGateway(port, process.argv.includes("--animate"),phase,settings) : createLiveGateway(state, token!, port,2000,settings,assistant,remote,lan,credentials);
+const gateway = mock ? createMockGateway(port, process.argv.includes("--animate"),phase,settings) : createLiveGateway(state, token!, port,2000,settings,assistant,remote,lan,credentials,voice);
 const usb=mock?undefined:new USBLink(runtime,state,settings,assistant);
 if (token) { await writeFile(tokenFile, token, { mode: 0o600 }); await chmod(tokenFile, 0o600); }
 console.log(`${mock ? "MOCK" : "LIVE"} Gateway: ${gateway.server.url}api/v1/health`);
@@ -53,6 +57,7 @@ async function stop() {
   gateway.close();
   await state.shutdownQuota();
   await assistant?.shutdown();
+  await voice?.close();
   if (token && await Bun.file(tokenFile).text().catch(() => "") === token) await rm(tokenFile, { force: true });
   process.exit(0);
 }

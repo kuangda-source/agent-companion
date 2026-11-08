@@ -168,3 +168,17 @@ test("Codex last known quota has no idle TTL and marks a reset deadline pending 
  reduceCodex(j,{type:"event_msg",timestamp:"2026-11-01T01:01:00Z",payload:{type:"token_count",rate_limits:{limit_id:"codex",primary:{used_percent:0,window_minutes:10080,resets_at:reset}}}});
  const fresh=currentCodexQuota(j.quota,"2026-11-01T01:02:00Z");expect(fresh[0].health).toBe("fresh");expect(fresh[0].used_ratio.value).toBe(0);
 });
+
+test('Codex blocking input displays waiting while async questions preserve running; runtime approval status is read-only overlay',async()=>{
+ const home=await mkdtemp(join(tmpdir(),'companion-input-'));try{
+ await mkdir(join(home,'.codex/sessions'),{recursive:true});const path=join(home,'.codex/sessions/input.jsonl'),at=new Date().toISOString();
+ const line=(type:string,payload:unknown)=>JSON.stringify({type,timestamp:at,payload})+'\n';
+ await writeFile(path,line('event_msg',{type:'task_started',turn_id:'turn'})+line('response_item',{type:'function_call',name:'request_user_input',call_id:'request'}));
+ const db=new Database(join(home,'.codex/state_5.sqlite'));db.exec('CREATE TABLE threads(id TEXT,rollout_path TEXT,name TEXT,cwd TEXT,model TEXT,updated_at INTEGER,archived INTEGER)');db.query('INSERT INTO threads VALUES(?,?,?,?,?,?,0)').run('input',path,'fixture input',home,'mock',Math.floor(Date.now()/1000));db.close();
+ const adapter=new CodexAdapter(home),writers=new Set([path]);expect((await adapter.collect(writers,at)).sessions[0].state).toBe('waiting_user');
+ await appendFile(path,line('response_item',{type:'function_call_output',call_id:'request',output:'fixture answer'})+line('response_item',{type:'function_call',name:'request_user_input_async',call_id:'async'}));
+ expect((await adapter.collect(writers,at)).sessions[0].state).toBe('running');
+ expect((await adapter.collect(writers,at,new Map([['input','waiting_user']]))).sessions[0].status_source).toBe('codex.thread/list.runtime_status');
+ expect((await adapter.collect(new Set(),at)).sessions[0].status_quality).toBe('unknown');
+ }finally{await rm(home,{recursive:true,force:true});}
+});

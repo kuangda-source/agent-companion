@@ -4,6 +4,7 @@ import type { Collector } from "./state.ts";
 import type { Session } from "../../../packages/protocol/src/index.ts";
 import { AssistantEventStore } from "./assistant-event-store.ts";
 import { readAssistantSource,digest,type SourceCursor } from "./assistant-source.ts";
+import type {SessionMemory} from "./session-memory.ts";
 
 const SOURCE="companion-observer",THREAD="project-monitor",RULE="read-only-briefing-v1";
 export const OBSERVER_TIMING={scan_ms:15000,quiet_ms:30000,max_wait_ms:120000,urgent_cooldown_ms:60000};
@@ -21,7 +22,7 @@ export function selectAssistantSessions(collector:Collector,config:ObserverConfi
 export class AssistantEvents {
   readonly repo:AssistantEventStore;
   private engine:Engine;
-  constructor(private db:Database,private clock:()=>number=()=>Date.now()){
+  constructor(private db:Database,private clock:()=>number=()=>Date.now(),private memory?:SessionMemory){
     this.repo=new AssistantEventStore(db);
     this.engine=new Engine({repo:this.repo,now:()=>new Date(this.clock()).toISOString(),
       scope:{scope:t=>t.source===SOURCE?{listened:true,observed:true}:{listened:false,reason:"local_sources_only"}},
@@ -60,7 +61,7 @@ export class AssistantEvents {
       const previous=this.db.query<{cursor:string;state:string;project_id:string},[string]>("SELECT cursor,state,project_id FROM assistant_event_sources WHERE id=?").get(session.id);
       const canonical=this.db.query<{cursor:string},[string]>("SELECT cursor FROM sources WHERE id=?").get(session.id);
       let batch:Awaited<ReturnType<typeof readAssistantSource>>;
-      try{batch=await readAssistantSource(session,source,previous?JSON.parse(previous.cursor) as SourceCursor:canonical?JSON.parse(canonical.cursor) as SourceCursor:null,Math.floor(30000/Math.max(1,selected.length)));}catch{continue;}
+      try{batch=this.memory?await this.memory.ingest(session,source,canonical?JSON.parse(canonical.cursor) as SourceCursor:null,Math.floor(30000/Math.max(1,selected.length))):await readAssistantSource(session,source,previous?JSON.parse(previous.cursor) as SourceCursor:canonical?JSON.parse(canonical.cursor) as SourceCursor:null,Math.floor(30000/Math.max(1,selected.length)));}catch{continue;}
       this.repo.atomic(()=>{
         for(const e of batch.evidence)this.enqueue("public:"+e.id,{kind:"message",session_id:session.id,project_id:e.project_id,evidence_id:e.id,role:e.role});
         const stateKey=session.state+":"+session.status_quality;

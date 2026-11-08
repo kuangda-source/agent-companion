@@ -12,6 +12,8 @@ import { emptyStatistics, UsageHistory } from "./usage-history.ts";
 import { join } from "node:path";
 import type { AccountBalance } from "../../../packages/protocol/src/index.ts";
 import { ScheduleReader, projectScheduledConversations } from "./schedules.ts";
+import type {MonitorSignal} from "./monitor-signals.ts";
+import type {CodexRuntimeStatusReader} from "./codex-runtime-status.ts";
 
 const names: Record<AgentId, string> = { codex: "Codex", claude: "Claude", deepseek: "DeepSeek", grok:"Grok" };
 export function sortSessions(sessions: Session[]): Session[] {
@@ -41,7 +43,7 @@ export function summarize(id: AgentId, sessions: Session[], count: number, at: s
   };
 }
 
-export interface Collector { refresh(): Promise<Snapshot>; current(): Snapshot; detail(id: string): Session | undefined; sessions?(): Session[]; source?(id:string): TranscriptSource | undefined; quotaStatus?():unknown; triggerQuota?(reason:"wake"|"manual"):void }
+export interface Collector { refresh(): Promise<Snapshot>; current(): Snapshot; detail(id: string): Session | undefined; sessions?(): Session[]; source?(id:string): TranscriptSource | undefined; quotaStatus?():unknown; triggerQuota?(reason:"wake"|"manual"):void;signals?():MonitorSignal[] }
 export class LiveState implements Collector {
   private codex: CodexAdapter;
   private quota:CodexQuotaMonitor;
@@ -55,7 +57,7 @@ export class LiveState implements Collector {
   private all: Session[] = [];
   private refreshing = false;
   private schedules: ScheduleReader;
-  constructor(home = homedir(), runtime?: string, budget: AccountBalance["budget"] = null, options:{quotaRead?:QuotaRead;selectedAgents?:()=>AgentId[]}={}) {
+  constructor(home = homedir(), runtime?: string, budget: AccountBalance["budget"] = null, private options:{quotaRead?:QuotaRead;selectedAgents?:()=>AgentId[];codexRuntime?:CodexRuntimeStatusReader}={}) {
     this.selectedAgents=options.selectedAgents??(()=>DEFAULT_AGENT_IDS);
     this.grok=new GrokAdapter(home);
     this.schedules=new ScheduleReader(home);
@@ -65,8 +67,9 @@ export class LiveState implements Collector {
     this.balance = runtime ? new DeepSeekBalance(join(runtime, "secrets/deepseek-api-key"), fetch, budget) : null;
   }
   quotaStatus(){return this.quota.status();}
+  signals(){return this.codex.signals().filter(s=>this.sessions().some(session=>session.id===s.session_id));}
   triggerQuota(reason:"wake"|"manual"){this.quota.trigger(reason);}
-  async shutdownQuota(){await this.quota.close();}
+  async shutdownQuota(){await this.quota.close();await this.options.codexRuntime?.close();}
   resetBalance(){this.balance?.reset();}
   current() { return selectedSnapshot(this.value,this.selectedAgents()); }
   sessions() { return this.all.filter(s=>this.selectedAgents().includes(s.agent_id)); }
@@ -80,7 +83,7 @@ export class LiveState implements Collector {
       void this.history.refresh(at);
       void this.balance?.refresh();
       const writers = await liveWriters();
-      const results = await Promise.allSettled([this.codex.collect(writers, at), this.claude.collect(), this.deepseek.collect(writers, at),this.grok.collect()]);
+      const results = await Promise.allSettled([this.codex.collect(writers, at,this.selectedAgents().includes("codex")?this.options.codexRuntime?.current():undefined), this.claude.collect(), this.deepseek.collect(writers, at),this.grok.collect()]);
       const agents: Agent[] = [], all: Session[] = [];
       for (let i = 0; i < AGENT_IDS.length; ++i) {
         const id = AGENT_IDS[i], result = results[i];

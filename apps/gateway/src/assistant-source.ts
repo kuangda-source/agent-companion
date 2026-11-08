@@ -6,7 +6,7 @@ import {grokPublicEntries} from "./adapters/grok.ts";
 import { array, cleanPublicMessage, iso, object, string, type ObjectValue, type TranscriptSource } from "./adapters/common.ts";
 
 export const digest=(value:string)=>createHash("sha256").update(value).digest("hex");
-export interface SourceCursor { inode:number; offset:number; size:number; modified:number; partial:boolean;stored_size?:number }
+export interface SourceCursor { inode:number; offset:number; size:number; modified:number; partial:boolean;stored_size?:number;skip_line?:boolean }
 export interface Evidence { id:string; session_id:string; project_id:string; title:string; role:"user"|"assistant"; timestamp:string|null; text:string }
 export interface SourceBatch { cursor:SourceCursor; evidence:Evidence[]; project_id:string; partial:boolean }
 const BLOCK=1024*1024, HEAD=128*1024;
@@ -37,7 +37,7 @@ function publicRow(agent:Session["agent_id"],row:ObjectValue): {role:"user"|"ass
 /** Public-message reader independent of the 12-message UI cache.
  * Initial large histories use a labeled head/tail sample; subsequent reads advance
  * a durable byte cursor. Source pointers come only from the existing adapters. */
-export async function readAssistantSource(session:Session,source:TranscriptSource,previous:SourceCursor|null,charBudget=4500):Promise<SourceBatch> {
+export async function readAssistantSource(session:Session,source:TranscriptSource,previous:SourceCursor|null,charBudget=4500,options:{sequential?:boolean}={}):Promise<SourceBatch> {
   const meta=await stat(source.path);
   const canonical=source.project_dir?await realpath(source.project_dir).catch(()=>resolve(source.project_dir!)):session.id;
   const projectId="project_"+digest(canonical).slice(0,20);
@@ -61,6 +61,7 @@ export async function readAssistantSource(session:Session,source:TranscriptSourc
   }
   const size=full?.length??meta.size;
   const reset=!previous || previous.inode!==meta.ino || previous.offset>size || (previous.size===size && previous.modified!==meta.mtimeMs);
+  if(options.sequential&&!reset&&!source.compressed)return readSequential(session,source,previous,projectId,charBudget,meta);
   if(!reset && previous.offset===size && previous.modified===meta.mtimeMs) return {cursor:previous,evidence:[],project_id:projectId,partial:previous.partial};
   const file=full?null:await open(source.path,"r");
   async function read(offset:number,length:number):Promise<Buffer> {
@@ -112,4 +113,41 @@ export async function readAssistantSource(session:Session,source:TranscriptSourc
   }
   partial ||= selected.length<all.length || offset<size;
   return {cursor:{inode:meta.ino,offset,size,modified:meta.mtimeMs,partial,stored_size:meta.size},evidence:selected,project_id:projectId,partial};
+}
+
+/** Bounded forward scan. A budget boundary leaves the next public row unread;
+ * oversized records are explicitly partial, never retained as raw tool output. */
+async function readSequential(session:Session,source:TranscriptSource,previous:SourceCursor,projectId:string,budget:number,meta:{ino:number;size:number;mtimeMs:number}):Promise<SourceBatch>{
+  const file=await open(source.path,"r"),evidence:Evidence[]=[];
+  let position=previous.offset,committed=position,rowStart=position,pending=Buffer.alloc(0),skipping=!!previous.skip_line,partial=previous.partial,scanned=0;
+  const result=():SourceBatch=>({project_id:projectId,partial,cursor:{inode:meta.ino,offset:committed,size:meta.size,modified:meta.mtimeMs,partial,stored_size:meta.size,skip_line:skipping},evidence});
+  try{
+    while(position<meta.size&&scanned<BLOCK){
+      const chunk=Buffer.alloc(Math.min(64*1024,meta.size-position)),{bytesRead}=await file.read(chunk,0,chunk.length,position);if(!bytesRead)break;
+      let start=0;
+      while(start<bytesRead){
+        const newline=chunk.subarray(0,bytesRead).indexOf(10,start),end=newline<0?bytesRead:newline,part=chunk.subarray(start,end);
+        if(!skipping){if(pending.length+part.length>256*1024){pending=Buffer.alloc(0);skipping=true;partial=true;}else pending=Buffer.concat([pending,part]);}
+        if(newline<0)break;
+        const after=position+newline+1;
+        if(!skipping&&pending.length){
+          try{
+            const message=publicRow(session.agent_id,object(JSON.parse(pending.toString("utf8"))));
+            if(message){
+              const chars=[...message.text];
+              if(evidence.length&&(chars.length>budget||evidence.length>=32)){committed=rowStart;return result();}
+              const text=chars.slice(0,Math.min(6000,budget)).join("");partial ||= text!==message.text;
+              evidence.push({id:"ref_"+digest(session.id+":"+(message.native??String(rowStart))+":"+message.role+":"+digest(message.text)).slice(0,24),session_id:session.id,project_id:projectId,title:session.title,role:message.role,timestamp:message.timestamp,text});
+              budget-=[...text].length;
+            }
+          }catch{partial=true;}
+        }
+        pending=Buffer.alloc(0);skipping=false;committed=after;rowStart=after;start=newline+1;
+        if(budget<=0||evidence.length>=32)return result();
+      }
+      position+=bytesRead;scanned+=bytesRead;
+      if(skipping){committed=position;rowStart=position;}
+    }
+    return result();
+  }finally{await file.close();}
 }

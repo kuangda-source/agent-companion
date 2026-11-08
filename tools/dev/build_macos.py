@@ -19,7 +19,7 @@ subprocess.run([str(ROOT / "scripts/dev"), "build"], cwd=ROOT, check=True)
 macos = APP / "Contents/MacOS"; resources = APP / "Contents/Resources"
 macos.mkdir(parents=True, exist_ok=True); (resources / "bin").mkdir(parents=True, exist_ok=True)
 controller_staged = macos / "AgentCompanion.installing"
-subprocess.run(["swiftc", "-swift-version", "5", "-O", "-parse-as-library", "-target", "arm64-apple-macos13.0", "-framework", "SwiftUI", "-framework", "AppKit", str(ROOT / "apps/macos/AgentCompanionApp.swift"),str(ROOT / "apps/macos/ThemeStyles.swift"),str(ROOT / "apps/macos/AssistantPanel.swift"),str(ROOT / "apps/macos/IntegrationSettingsPanel.swift"),str(ROOT / "apps/macos/ConnectionPanel.swift"),str(ROOT / "apps/macos/HostDisplayMonitor.swift"), "-o", str(controller_staged)], cwd=ROOT, check=True)
+subprocess.run(["swiftc", "-swift-version", "5", "-O", "-parse-as-library", "-target", "arm64-apple-macos13.0", "-framework", "SwiftUI", "-framework", "AppKit", str(ROOT / "apps/macos/AgentCompanionApp.swift"),str(ROOT / "apps/macos/ThemeStyles.swift"),str(ROOT / "apps/macos/AssistantPanel.swift"),str(ROOT / "apps/macos/VoicePanel.swift"),str(ROOT / "apps/macos/IntegrationSettingsPanel.swift"),str(ROOT / "apps/macos/ConnectionPanel.swift"),str(ROOT / "apps/macos/HostDisplayMonitor.swift"), "-o", str(controller_staged)], cwd=ROOT, check=True)
 os.replace(controller_staged, macos / "AgentCompanion")
 gateway_staged = resources / "bin/agent-companion-gateway.installing"
 subprocess.run([str(ROOT / ".tools/bin/bun"), str(ROOT / "tools/dev/build_gateway.ts"), str(ROOT / "apps/gateway/src/main.ts"), str(gateway_staged)], cwd=ROOT, check=True)
@@ -36,7 +36,7 @@ shutil.copy(ROOT/".build/agent-companion-usb",usb_staged)
 os.replace(usb_staged,usb)
 for binary in (resources / "bin").iterdir():
     if binary.is_file(): subprocess.run(["codesign", "--force", "--sign", "-", str(binary)], check=True)
-info = {"CFBundleIdentifier": "cloud.kuangda.agentcompanion", "CFBundleName": "AgentCompanion", "CFBundleDisplayName": "Agent Companion", "CFBundleExecutable": "AgentCompanion", "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.4.11", "CFBundleVersion": "33", "LSMinimumSystemVersion": "13.0", "NSHighResolutionCapable": True, "NSLocalNetworkUsageDescription": "连接同一局域网中的 Agent Companion 桌面屏幕。", "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True}}
+info = {"CFBundleIdentifier": "cloud.kuangda.agentcompanion", "CFBundleName": "AgentCompanion", "CFBundleDisplayName": "Agent Companion", "CFBundleExecutable": "AgentCompanion", "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.4.12", "CFBundleVersion": "34", "LSMinimumSystemVersion": "13.0", "NSHighResolutionCapable": True, "NSLocalNetworkUsageDescription": "连接同一局域网中的 Agent Companion 桌面屏幕。", "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True}}
 iconset=ROOT/".cache/macos/AppIcon.iconset"
 subprocess.run(["swift",str(ROOT/"apps/macos/AppIcon.swift"),str(iconset)],check=True)
 subprocess.run(["iconutil","--convert","icns",str(iconset),"--output",str(resources/"AppIcon.icns")],check=True)

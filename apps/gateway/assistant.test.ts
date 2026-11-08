@@ -160,3 +160,22 @@ test("legacy assistant databases preserve messages and add canonical correlation
     expect(db.query<{name:string},[]>("PRAGMA table_info(calls)").all().some(r=>r.name==="operation_id")).toBe(true);
   }finally{db.close();assistant.close();f.remove();}
 });
+
+test('a changed conversation updates only its own model context and retains other session memories',async()=>{
+ const f=fixture(),other={...f.session,id:'codex:other',provider_session_id:'other',title:'second fixture'},path=join(f.dir,'other.jsonl');writeFileSync(path,f.row('另一个会话的目标'));
+ const collector={...f.collector,sessions:()=>[f.session,other],source:(id:string)=>id===other.id?{path,project_dir:f.dir}:f.source};const seen:string[][]=[];
+ const assistant=new Assistant(collector,f.dir,async(_url,options)=>{
+  const request=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(request.messages)[1]).content))),sessions=array(payload.sessions).map(object);seen.push(sessions.map(s=>String(s.session_id)));
+  const project=String(sessions[0].project_id),refs=sessions.map(s=>String(object(array(s.messages)[0]).id));
+  return Response.json({choices:[{message:{content:JSON.stringify({projects:[{project_id:project,text:'fixture progress',source_ids:[refs[0]]}],attention:[],changes:[],sessions:sessions.map((s,i)=>({session_id:s.session_id,summary:'fixture summary',source_ids:[refs[i]],memory:{current_task:{key:'goal',text:'fixture goal',source_ids:[refs[i]],stage:'reported'},latest_results:[],open_questions:[]}}))})}}]});
+ });
+ try{assistant.updateConfig({enabled:true,base_url:'https://fixture.example/v1',model:'fixture-model'});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');
+ appendFileSync(f.path,f.row('新结果，仅第一个会话变化。'));assistant.refresh();await assistant.settled();expect(seen[1]).toEqual([f.session.id]);expect(assistant.current().briefing?.sessions).toHaveLength(2);expect(assistant.sessionFacts(other.id).current_task?.text).toBe('fixture goal');
+ }finally{assistant.close();f.remove();}
+});
+
+test('a temporarily unavailable voice queue does not undo accepted memory and retries from its durable outbox',async()=>{
+ const f=fixture();let attempts=0;const assistant=new Assistant(f.collector,f.dir,async(_url,options)=>{const request=object(JSON.parse(String(options.body)));return completion(object(JSON.parse(String(object(array(request.messages)[1]).content))));});
+ try{assistant.onImportantChange=()=>{attempts++;if(attempts===1)throw new Error('fixture queue offline');};assistant.updateConfig({enabled:true,base_url:'https://fixture.example/v1',model:'fixture-model'});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(assistant.messages()).toHaveLength(1);expect(attempts).toBe(1);await assistant.tick();expect(attempts).toBe(2);expect(assistant.current().usage.requests).toBe(1);
+ }finally{assistant.close();f.remove();}
+});

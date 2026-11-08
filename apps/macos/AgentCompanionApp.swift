@@ -9,9 +9,9 @@ struct DeviceSettings: Codable, Equatable {
 }
 struct Preferences: Codable, Equatable { var schema_version = 1, revision = 0; var appearance = Appearance(); var device = DeviceSettings() }
 enum Section: String, CaseIterable, Identifiable {
-    case overview = "概览", assistant = "AI 助手", appearance = "外观", agents = "Agent", device = "屏幕", connection = "连接", integrations = "API 设置"
+    case overview = "概览", assistant = "AI 助手", voice = "语音播报", appearance = "外观", agents = "Agent", device = "屏幕", connection = "连接", integrations = "API 设置"
     var id: String { rawValue }
-    var symbol: String { switch self { case .overview: return "square.grid.2x2"; case .assistant: return "sparkles"; case .appearance: return "tshirt"; case .agents: return "person.3"; case .device: return "display"; case .connection: return "wifi"; case .integrations: return "key" } }
+    var symbol: String { switch self { case .overview: return "square.grid.2x2"; case .assistant: return "sparkles"; case .voice: return "speaker.wave.2"; case .appearance: return "tshirt"; case .agents: return "person.3"; case .device: return "display"; case .connection: return "wifi"; case .integrations: return "key" } }
 }
 
 struct BoardNetwork: Codable, Equatable { var state: String; var code: Int? }
@@ -313,6 +313,7 @@ struct ControlPanel: View {
                     switch section {
                     case .overview: overview
                     case .assistant: AssistantPanel()
+                    case .voice: VoicePanel()
                     case .integrations: IntegrationSettingsPanel()
                     case .appearance: appearance
                     case .agents: agentSelection
@@ -332,7 +333,7 @@ struct ControlPanel: View {
             .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("好") { model.error = nil } } message: { Text(model.error ?? "") }
     }
     private var subtitle: String {
-        switch section { case .overview: return "本机采集、屏幕预览与设备连接"; case .assistant: return "汇总最近对话，查看项目进展与关注事项"; case .appearance: return "选择屏幕风格，设置会自动保存并同步至预览"; case .agents: return "选择 1–3 个 Agent，自动保存并同步到屏幕"; case .device: return "调整亮度，设置跟随 Mac 熄屏与唤醒"; case .connection: return "默认 USB 即插即用，也可配置无线连接"; case .integrations: return "连接你的模型服务，按需启用余额查询" }
+        switch section { case .overview: return "本机采集、屏幕预览与设备连接"; case .assistant: return "汇总最近对话，查看项目进展与关注事项"; case .voice: return "准备重要消息的语音播报，声音由监视器播放"; case .appearance: return "选择屏幕风格，设置会自动保存并同步至预览"; case .agents: return "选择 1–3 个 Agent，自动保存并同步到屏幕"; case .device: return "调整亮度，设置跟随 Mac 熄屏与唤醒"; case .connection: return "默认 USB 即插即用，也可配置无线连接"; case .integrations: return "连接你的模型服务，按需启用余额查询" }
     }
     private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 18) { Text(title).font(.headline); content() }.padding(22).frame(maxWidth: .infinity, alignment: .leading).background(CompanionSurface(theme:model.theme))
