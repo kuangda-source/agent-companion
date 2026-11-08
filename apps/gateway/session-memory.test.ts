@@ -48,3 +48,10 @@ test('same-topic duplicates merge references and equal-time conflicting states r
  expect(uniqueTopics([base,{...base,status:'resolved'}],v=>v.status)).toHaveLength(0);
  expect(uniqueTopics([{...base,source_at:200,status:'resolved'},base],v=>v.status)[0].status).toBe('resolved');
 });
+
+test('duplicate memory issues merge, and equal-time contradictory resolutions cannot close an open issue',async()=>{
+ const f=fixture();try{const batch=await f.memory.ingest(f.s,f.source,null,1000),e=batch.evidence[0],allowed=new Map([[e.id,e]]),issue={key:'question',text:'fixture question',source_ids:[e.id],stage:'reported',status:'open'};
+ const initial=f.memory.merge(f.s.id,{open_questions:[issue,issue]},allowed);expect(initial.open_questions).toHaveLength(1);f.memory.commit(f.s.id,batch.through,initial,{});
+ expect(f.memory.merge(f.s.id,{open_questions:[issue,{...issue,status:'resolved'}]},allowed).open_questions[0].status).toBe('open');
+ }finally{f.close();}
+});

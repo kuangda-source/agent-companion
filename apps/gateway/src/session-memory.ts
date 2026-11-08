@@ -1,4 +1,4 @@
-import {invalidOutput} from "./assistant-validation.ts";
+import {invalidOutput,uniqueTopics} from "./assistant-validation.ts";
 import type {Database} from "bun:sqlite";
 import type {Session} from "../../../packages/protocol/src/index.ts";
 import {readAssistantSource,type Evidence,type SourceCursor} from "./assistant-source.ts";
@@ -51,8 +51,10 @@ export class SessionMemory {
     };
     const update=(key:"latest_results"|"open_questions",limit:number)=>{
       if(patch[key]===undefined)return old[key];if(!Array.isArray(patch[key])||patch[key].length>12)invalidOutput('memory_shape');
-      const changed=(patch[key] as unknown[]).map(v=>parse(v,key==="open_questions")),merged=new Map(old[key].map(f=>[f.key,f]));
-      if(new Set(changed.map(f=>f.key)).size!==changed.length)invalidOutput('memory_duplicates');
+      const proposed=(patch[key] as unknown[]).map(v=>parse(v,key==="open_questions"));
+      const changed=uniqueTopics(proposed.map(f=>({...f,project_id:id,source_at:Date.parse(f.observed_at??'')||0})),f=>String(f.status??f.stage))
+        .map(({project_id,source_at,...fact})=>({...fact,source_ids:fact.source_ids.slice(0,16)}));
+      const merged=new Map(old[key].map(f=>[f.key,f]));
       for(const f of changed){const before=merged.get(f.key);if(!before||String(f.observed_at??"")>=String(before.observed_at??"")){merged.delete(f.key);merged.set(f.key,f);}}
       const values=[...merged.values()];
       return key==="open_questions"?[...values.filter(f=>f.status==="resolved").slice(-limit),...values.filter(f=>f.status==="open")]:values.slice(-limit);

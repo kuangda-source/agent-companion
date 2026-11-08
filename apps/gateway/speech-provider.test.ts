@@ -3,7 +3,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {SpeechProvider,bailianRoot} from './src/speech-provider.ts';
-import {assistantProviderBody} from './src/assistant-provider-options.ts';
+import {assistantProviderBody,assistantSessionBatch} from './src/assistant-provider-options.ts';
 import {VoiceBroadcasts} from './src/voice-broadcast.ts';
 import {createLiveGateway} from './src/server.ts';
 import {MockState} from './src/scenarios.ts';
@@ -28,6 +28,7 @@ test('untrusted endpoints and audio URLs are rejected and do not leak credential
 });
 test('Qwen thinking budget is finite and provider scoped; conflicting effort fields and preserved reasoning are disabled',()=>{
  const config={base_url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3.8-flash'},body=assistantProviderBody(config,{reasoning_effort:'xhigh',messages:[]},'chat');expect(body).toMatchObject({model:'qwen3.8-flash',enable_thinking:true,thinking_budget:1024,preserve_thinking:false,max_tokens:8000});expect('reasoning_effort' in body).toBe(false);expect(assistantProviderBody(config,{},'briefing')).toMatchObject({enable_thinking:false,preserve_thinking:false});
+ expect(assistantSessionBatch(config)).toBe(1);expect(assistantSessionBatch({...config,base_url:'https://api.example/v1'})).toBe(2);
  const other=assistantProviderBody({...config,base_url:'https://api.example/v1'},{messages:[]});expect('thinking_budget' in other).toBe(false);expect(other.max_tokens).toBe(10000);
 });
 test('TTS provider configuration and key routes retain auth and save without synthesis',async()=>{
@@ -37,4 +38,12 @@ test('TTS provider configuration and key routes retain auth and save without syn
  const keyResponse=await fetch(new URL('/api/v1/credentials',gateway.server.url),{method:'PATCH',headers,body:JSON.stringify({service:'tts',key:'fixture-only-replacement-key'})});expect(keyResponse.status).toBe(200);expect(await keyResponse.text()).not.toContain('fixture-only-replacement-key');
  expect((await fetch(new URL('/api/v1/voice/test',gateway.server.url),{method:'POST',headers,body:'{}'})).status).toBe(409);expect(count).toBe(0);
  }finally{gateway.close();await voice.close();f.remove();}
+});
+
+test('native Qwen schema scopes citations to the correct session and removes truncating token limits',async()=>{
+ const {briefingOutputSchema}=await import('./src/assistant-output-schema.ts');const e={id:'ref_own',session_id:'session',project_id:'project',title:'fixture',role:'user' as const,timestamp:null,text:'fixture'};
+ const schema=briefingOutputSchema([{session_id:'session',project_id:'project'}],new Map([[e.id,e],['ref_related',{...e,id:'ref_related',session_id:'other'}],['ref_foreign',{...e,id:'ref_foreign',session_id:'foreign',project_id:'foreign'}]])) as any;
+ expect(schema.properties.sessions.items.properties.source_ids.items.enum).toEqual(['ref_own']);expect(schema.properties.projects.items.properties.source_ids.items.enum).toEqual(['ref_own','ref_related']);expect(schema.required).toEqual(['projects','attention','changes','sessions']);
+ const request=assistantProviderBody({base_url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3.8-flash'},{max_completion_tokens:32},'briefing',schema);
+ expect(request.response_format).toMatchObject({type:'json_schema',json_schema:{strict:true}});expect('max_tokens' in request).toBe(false);expect('max_completion_tokens' in request).toBe(false);expect(()=>briefingOutputSchema([{session_id:'missing',project_id:'project'}],new Map())).toThrow('no_readable_sources');
 });

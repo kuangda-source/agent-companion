@@ -203,3 +203,23 @@ test('missing one note preserves its pending increment while valid notes commit 
  assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(assistant.current().briefing?.sessions).toHaveLength(2);expect(assistant.current().automation.incremental_memory?.pending).toBe(0);expect(call).toBe(2);
  }finally{assistant.close();f.remove();}
 });
+
+test('incremental model context excludes unrelated projects while retaining unchanged sessions of the same project',async()=>{
+ const f=fixture(),b={...f.session,id:'codex:related',provider_session_id:'related'},c={...f.session,id:'codex:unrelated',provider_session_id:'unrelated'},pb=join(f.dir,'related.jsonl'),pc=join(f.dir,'unrelated.jsonl');writeFileSync(pb,f.row('related fixture goal'));writeFileSync(pc,f.row('unrelated fixture goal'));let last:Record<string,unknown>={};
+ const collector={...f.collector,sessions:()=>[f.session,b,c],source:(id:string)=>id===b.id?{path:pb,project_dir:f.dir}:id===c.id?{path:pc,project_dir:join(f.dir,'another-project')}:f.source};
+ const assistant=new Assistant(collector,f.dir,async(_url,options)=>{
+  const body=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(body.messages)[1]).content)));last=payload;const items=array(payload.sessions).map(object),projects=new Map<string,Record<string,unknown>>();
+  for(const s of items)projects.set(String(s.project_id),{project_id:s.project_id,text:'fixture project',source_ids:[object(array(s.messages)[0]).id]});
+  return Response.json({choices:[{message:{content:JSON.stringify({projects:[...projects.values()],attention:[],changes:[],sessions:items.map(s=>({session_id:s.session_id,summary:'fixture summary',source_ids:[object(array(s.messages)[0]).id]}))})}}]});
+ });
+ try{assistant.updateConfig({enabled:true,base_url:'https://fixture.example/v1',model:'fixture-model',max_sessions:3});assistant.refresh();await assistant.settled();assistant.refresh();await assistant.settled();appendFileSync(f.path,f.row('new result only in first project'));assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(array(last.unchanged_session_summaries).map(v=>object(v).session_id)).toEqual([b.id]);expect(array(last.sessions).map(v=>object(v).session_id)).toEqual([f.session.id]);
+ }finally{assistant.close();f.remove();}
+});
+
+test('an empty recent conversation does not starve a readable session in a single-session Qwen batch',async()=>{
+ const f=fixture(),empty={...f.session,id:'codex:empty',provider_session_id:'empty',title:'empty fixture'},emptyPath=join(f.dir,'empty.jsonl');writeFileSync(emptyPath,'');let calls=0;
+ const collector={...f.collector,sessions:()=>[empty,f.session],source:(id:string)=>id===empty.id?{path:emptyPath,project_dir:f.dir}:f.source};
+ const assistant=new Assistant(collector,f.dir,async(_url,options)=>{calls++;const request=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(request.messages)[1]).content)));expect(array(payload.sessions).map(v=>object(v).session_id)).toEqual([f.session.id]);return completion(payload);});
+ try{assistant.updateConfig({enabled:true,base_url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3.8-flash'});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(calls).toBe(1);expect(assistant.current().coverage).toMatchObject({selected:2,read:1,unavailable:1,analyzed:1,partial:true});
+ }finally{assistant.close();f.remove();}
+});
