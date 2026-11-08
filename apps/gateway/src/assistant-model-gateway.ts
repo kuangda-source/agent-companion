@@ -39,7 +39,7 @@ export class AssistantModelGateway {
       const chunks=[{id,model,created,object:"chat.completion.chunk",choices:[{index:0,delta:{role:"assistant",content:message.content??""},finish_reason:null}]},
         {id,model,created,object:"chat.completion.chunk",choices:[{index:0,delta:{},finish_reason:"stop"}],usage:response.usage}];
       return new Response(chunks.map(c=>"data: "+JSON.stringify(c)+"\n\n").join("")+"data: [DONE]\n\n",{headers:{...headers,"Content-Type":"text/event-stream"}});
-    }catch(error){const code=error instanceof Error?error.message:"assistant_model_failed";const safe=/^(provider_http_\d+|daily_request_limit|assistant_cancelled|invalid_model_request|assistant_model_tools_disabled)$/.test(code)?code:"assistant_model_failed";
+    }catch(error){const code=error instanceof Error?error.message:"assistant_model_failed";const safe=/^(provider_http_\d+|provider_no_accounts|provider_timeout|provider_network_error|daily_request_limit|assistant_cancelled|invalid_model_request|assistant_model_tools_disabled)$/.test(code)?code:"assistant_model_failed";
       // This private single-attempt endpoint must not trigger SDK transport retries.
       // The application exposes the original error code and owns any user retry.
       return Response.json({error:{message:safe}},{status:400,headers});

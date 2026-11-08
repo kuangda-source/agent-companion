@@ -11,6 +11,7 @@ struct AssistantCoverage: Codable, Equatable {
     var generated_at: String; var recent_days: Int; var discovered: Int; var selected: Int; var read: Int; var unavailable: Int; var partial: Bool; var note: String
 }
 struct AssistantUsage: Codable, Equatable { var requests: Int; var input_tokens: Int; var output_tokens: Int }
+struct AssistantRecovery: Codable, Equatable { var consecutive_failures: Int; var last_error: String?; var last_failed_at: String?; var next_retry_at: String? }
 struct AssistantRuntime: Codable, Equatable { var chat_engine: String; var briefing_engine: String; var memory_count: Int; var persona_revision: Int; var history_token_budget: Int? }
 struct AssistantAutomation: Codable, Equatable { var engine: String; var scan_seconds: Int; var merge_seconds: Int; var max_wait_seconds: Int; var pending_events: Int; var queued_jobs: Int; var events_seen: Int; var suppressed_batches: Int; var last_scan_at: String?; var last_published_at: String?; var attention_open: Int }
 struct AssistantAttention: Codable, Equatable, Identifiable { var id: String; var text: String; var source_ids: [String]; var updated_at: String }
@@ -19,6 +20,7 @@ struct AssistantSavedMemory: Codable, Identifiable { var id: String; var text: S
 struct AssistantMemoryState: Codable { var revision: Int; var persona: AssistantPersona; var items: [AssistantSavedMemory] }
 struct AssistantFeed: Codable, Equatable {
     var revision: Int; var status: String; var model: String; var last_error: String?
+    var recovery: AssistantRecovery?
     var configuration: AssistantConfiguration; var usage: AssistantUsage; var messages: [AssistantMessage]; var coverage: AssistantCoverage?
     var runtime: AssistantRuntime?
     var automation: AssistantAutomation?
@@ -58,6 +60,9 @@ struct AssistantPanel: View {
                         if coverage.partial { Text("本轮分析公开正文节选；长会话采用开头与近期片段，尚未覆盖完整历史。").font(.caption).foregroundStyle(model.theme.muted) }
                     }
                     if let code = feed.last_error { Text(errorText(code)).foregroundStyle(model.theme.accent) }
+                    if feed.configuration.auto_refresh, let retry = feed.recovery?.next_retry_at {
+                        Text("自动整理最早于 \(displayTime(retry)) 重试；也可点击“更新简报”立即重试。").font(.caption).foregroundStyle(model.theme.muted)
+                    }
                 } else { Text("正在读取助手状态…").foregroundStyle(model.theme.muted) }
             }
             if let items = feed?.attention_items, !items.isEmpty {
@@ -131,6 +136,11 @@ struct AssistantPanel: View {
         case "invalid_source_reference", "invalid_model_output": return "本次回答未通过来源检查，可稍后更新简报。"
         case "no_readable_sources": return "当前没有可读取的最近会话正文。"
         case "provider_http_401", "provider_http_403": return "模型接口鉴权失败，请检查本机助手凭据。"
+        case "provider_no_accounts": return "模型服务暂时没有可用账号，请检查 API 服务端的账号状态；已有简报已保留。"
+        case "provider_http_503": return "模型服务暂时不可用，稍后自动重试；已有简报已保留。"
+        case "provider_http_429": return "模型服务请求受限，稍后自动重试。"
+        case "provider_timeout": return "模型服务响应超时，稍后自动重试。"
+        case "provider_network_error": return "暂时无法连接模型服务，请检查网络或 API 地址。"
         default: return "本轮请求未完成，已有简报仍可查看。"
         }
     }

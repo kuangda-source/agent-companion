@@ -16,7 +16,8 @@ function fixture(){
  writeFileSync(path,row("开始整理合成项目"));mkdirSync(join(dir,"secrets"));writeFileSync(join(dir,"secrets/assistant-api-key"),"fixture-event-key");
  const mock=new MockState(),collector={current:()=>mock.current(),refresh:()=>mock.refresh(),detail:()=>session,sessions:()=>[session],source:()=>({path,project_dir:dir})};
  const request=async(_url:string,options:RequestInit)=>{
-   calls++;const req=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(req.messages)[1]).content))),sessions=array(payload.sessions).map(object);
+   calls++;if(mode==="unavailable")return Response.json({error:{message:"No available accounts: no available accounts"}},{status:503});
+   const req=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(req.messages)[1]).content))),sessions=array(payload.sessions).map(object);
    const first=sessions[0]!,e=object(array(first.messages).at(-1)),ref=mode==="invalid"?"ref_invented":String(e.id),project_id=String(first.project_id);
    const attention=["open","rephrase","resolved"].includes(mode)?[{project_id,key:"review_request",status:mode==="resolved"?"resolved":"open",text:mode==="rephrase"?"请确认本轮结果，表述有所更新。":mode==="resolved"?"本轮结果已确认，关注事项解除。":"需要用户确认本轮结果。",source_ids:[ref]}]:[];
    const changes=mode==="milestone"?[{project_id,key:"first_milestone",kind:"milestone",text:"合成项目达成第一个里程碑。",source_ids:[ref]}]:[];
@@ -32,6 +33,37 @@ test("source events merge before analysis and ordinary progress updates context 
    f.advance(15000);await a.tick();await a.settled();expect(f.calls()).toBe(1);expect(a.current().status).toBe("ready");expect(a.messages()).toHaveLength(0);
    expect(a.current().briefing).not.toBeNull();expect(a.current().automation.suppressed_batches).toBe(1);
    f.advance(600000);await a.tick();await a.settled();expect(f.calls()).toBe(1);
+ }finally{await a.shutdown();f.remove();}
+});
+test("provider outage backs off across restart and retries the failed summary without new source events",async()=>{
+ const f=fixture();let a=f.make();try{
+   f.mode("unavailable");await a.tick();f.advance(30000);await a.tick();await a.settled();
+   expect(f.calls()).toBe(1);expect(a.current().last_error).toBe("provider_no_accounts");
+   expect(a.current().recovery.consecutive_failures).toBe(1);expect(a.messages()).toHaveLength(0);
+   f.advance(240000);await a.tick();await a.settled();expect(f.calls()).toBe(1);
+   const retry=a.current().recovery.next_retry_at;await a.shutdown();a=f.make();
+   expect(a.current().status).toBe("failed");expect(a.current().recovery.next_retry_at).toBe(retry);
+   f.mode("progress");f.advance(60000);await a.tick();await a.settled();
+   expect(f.calls()).toBe(2);expect(a.current().status).toBe("ready");expect(a.current().recovery.consecutive_failures).toBe(0);
+   expect(a.current().recovery.next_retry_at).toBeNull();expect(a.messages()).toHaveLength(0);
+ }finally{await a.shutdown();f.remove();}
+});
+test("urgent source changes respect outage backoff while explicit refresh can recover immediately",async()=>{
+ const f=fixture(),a=f.make();try{
+   f.mode("unavailable");await a.tick();f.advance(30000);await a.tick();await a.settled();
+   f.advance(70000);f.append("出现一个新的合成阻塞");f.session.state="error";f.session.status_quality="confirmed";f.session.status_observed_at=new Date(f.now()).toISOString();
+   await a.tick();f.advance(30000);await a.tick();await a.settled();
+   expect(f.calls()).toBe(1);expect(a.current().automation.pending_events).toBeGreaterThan(0);
+   f.mode("progress");a.refresh();await a.settled();expect(f.calls()).toBe(2);expect(a.current().status).toBe("ready");expect(a.current().recovery.next_retry_at).toBeNull();
+ }finally{await a.shutdown();f.remove();}
+});
+test("provider outage keeps the last accepted briefing and source cursor until recovery",async()=>{
+ const f=fixture(),a=f.make();try{
+   a.refresh();await a.settled();const messages=a.messages(),briefing=a.current().briefing;
+   f.advance(300000);f.append("上次简报后的合成新决定");f.mode("unavailable");a.refresh();await a.settled();
+   expect(a.messages()).toEqual(messages);expect(a.current().briefing).toEqual(briefing);expect(a.current().last_error).toBe("provider_no_accounts");expect(a.current().usage.requests).toBe(2);
+   f.mode("milestone");f.advance(300000);await a.tick();await a.settled();
+   expect(f.calls()).toBe(3);expect(a.current().status).toBe("ready");expect(a.messages()).toHaveLength(messages.length+1);
  }finally{await a.shutdown();f.remove();}
 });
 test("new attention notifies once, rephrasing stays quiet, and explicit fresh resolution closes it",async()=>{

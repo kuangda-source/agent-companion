@@ -11,6 +11,7 @@ import type { AssistantHistoryRecord } from "./assistant-memory-contract.ts";
 import { AssistantEvents,selectAssistantSessions,OBSERVER_TIMING,type ObserverJob,type ObserverPublication } from "./assistant-events.ts";
 import { AssistantNotifications,type AttentionUpdate,type ImportantChange } from "./assistant-notifications.ts";
 import { digest } from "./assistant-source.ts";
+import {AssistantProviderRecovery,providerErrorCode} from "./assistant-provider-recovery.ts";
 
 export interface AssistantConfig {
   enabled:boolean; auto_refresh:boolean; base_url:string; model:string;
@@ -71,6 +72,7 @@ export class Assistant {
   private modelGateway:AssistantModelGateway;
   private events:AssistantEvents;
   private notifications:AssistantNotifications;
+  private recovery:AssistantProviderRecovery;
   private observing:Promise<void>|null=null;
   private lastScan=0;
   constructor(private collector:Collector,private runtime:string,private request:Fetcher=fetch,private runtimeOptions:AssistantRuntimeOptions={}) {
@@ -97,6 +99,8 @@ export class Assistant {
     this.userMemory=new AssistantUserMemory(this.db,this.identityValue,()=>this.chatHistory());
     this.modelGateway=new AssistantModelGateway((body,signal,operationId)=>this.providerCompletion(body,signal,operationId));
     this.events=new AssistantEvents(this.db,()=>this.now());this.notifications=new AssistantNotifications(this.db,()=>this.now());
+    this.recovery=new AssistantProviderRecovery(this.db,()=>this.now());
+    if(this.recovery.pending()){this.status="failed";this.lastError=this.recovery.current().last_error;}
     this.revision=Number(this.db.query<{n:number},[]>("SELECT COALESCE(MAX(seq),0) AS n FROM messages").get()?.n??0);
     this.deliverNotifications();
   }
@@ -117,7 +121,9 @@ export class Assistant {
   updateConfig(input:unknown) {
     if(this.busy)throw new Error("assistant_busy");
     const next=validateConfig(input,this.config),temp=this.configPath+".tmp";
-    writeFileSync(temp,JSON.stringify(next,null,2)+"\n",{mode:0o600});chmodSync(temp,0o600);renameSync(temp,this.configPath);this.config=next;this.revision++;
+    writeFileSync(temp,JSON.stringify(next,null,2)+"\n",{mode:0o600});chmodSync(temp,0o600);renameSync(temp,this.configPath);
+    if(next.base_url!==this.config.base_url||next.model!==this.config.model){this.recovery.reset();this.lastError=null;this.status="ready";}
+    this.config=next;this.revision++;
     return this.configuration();
   }
   messages(limit=40):AssistantMessage[] {
@@ -136,6 +142,7 @@ export class Assistant {
     const coverage=this.db.query<{value:string},[]>("SELECT value FROM meta WHERE key='coverage'").get();
     return {schema_version:1,data_source:"live",revision:this.revision,status:!this.config.enabled||!existsSync(this.keyPath)?"unconfigured":this.busy?"updating":this.status,
       model:this.config.model,last_error:this.lastError,configuration:this.configuration(),usage:this.usage(),messages:this.messages(8),
+      recovery:this.recovery.current(),
       automation:{...this.events.current(),attention_open:this.notifications.list().length},attention_items:this.notifications.list(),
       runtime:{chat_engine:this.engines.chat.id,briefing_engine:this.engines.briefing.id,memory_count:this.userMemory.records().length,persona_revision:this.userMemory.persona().revision,history_token_budget:this.engines.chat.id==="mastra"?32000:null},
       briefing:last?JSON.parse(last.value) as Briefing:null,coverage:coverage?JSON.parse(coverage.value):null};
@@ -159,17 +166,23 @@ export class Assistant {
     try {
       const response=await this.request(this.config.base_url+"/chat/completions",{method:"POST",redirect:"error",signal:controller.signal,
         headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:redactSecrets(JSON.stringify({...body,model:this.config.model,stream:false,max_tokens:10000})).replaceAll(key,"[已隐藏凭据]")});
-      if(!response.ok)throw new Error(`provider_http_${response.status}`);
+      if(!response.ok)throw new Error(await providerErrorCode(response));
       const raw=await response.text();if(raw.length>512_000)throw new Error("model_response_too_large");
       const value=object(JSON.parse(raw)),usage=object(value.usage),message=object(object(array(value.choices)[0]).message);
       const content=typeof message.content==="string"?message.content.trim():"";
       if(!this.closed) this.db.query("UPDATE calls SET returned_model=?,status='received',input_tokens=?,output_tokens=? WHERE id=?").run(
         typeof value.model==="string"?value.model:null,Number.isSafeInteger(usage.prompt_tokens)?Number(usage.prompt_tokens):null,Number.isSafeInteger(usage.completion_tokens)?Number(usage.completion_tokens):null,call.lastInsertRowid);
       if(!content)throw new Error("empty_model_response");
+      this.recovery.reset();
       return value;
     } catch(error) {
       if(!this.closed)this.db.query("UPDATE calls SET status='failed' WHERE id=?").run(call.lastInsertRowid);
-      throw error;
+      if(this.closed||signal?.aborted)throw error;
+      const message=error instanceof Error?error.message:"";
+      const code=controller.signal.aborted||error instanceof Error&&error.name==="AbortError"?"provider_timeout":
+        /^(provider_http_\d+|provider_no_accounts|empty_model_response|model_response_too_large)$/.test(message)?message:
+        error instanceof SyntaxError?"invalid_model_output":"provider_network_error";
+      this.recovery.failed(code);throw new Error(code);
     } finally {clearTimeout(timeout);signal?.removeEventListener("abort",abortFromOperation);this.abort=null;}
   }
   private async model(payload:unknown,format:string,signal?:AbortSignal):Promise<unknown> {
@@ -195,7 +208,7 @@ export class Assistant {
     this.busy=true;this.lastError=null;this.revision++;
     this.operation=work().then(()=>{if(!this.closed)this.status="ready";}).catch(error=>{
       if(!this.closed){this.status="failed";const code=controller.signal.aborted?"assistant_cancelled":error instanceof Error?error.message:"assistant_failed";
-        this.lastError=/^(provider_http_\d+|daily_request_limit|invalid_source_reference|invalid_model_output|empty_model_response|model_response_too_large|no_readable_sources|assistant_cancelled)$/.test(code)?code:"assistant_request_failed";}
+        this.lastError=/^(provider_http_\d+|provider_no_accounts|provider_timeout|provider_network_error|daily_request_limit|invalid_source_reference|invalid_model_output|empty_model_response|model_response_too_large|no_readable_sources|assistant_cancelled)$/.test(code)?code:"assistant_request_failed";}
     }).finally(()=>{this.busy=false;this.operationAbort=null;this.operationScope=null;this.revision++;});
     return {...scope};
   }
@@ -210,11 +223,14 @@ export class Assistant {
     this.lastScan=this.now();
     this.observing=this.events.observe(this.collector,this.config);
     try{await this.observing;}catch{if(!this.closed){this.status="failed";this.lastError="assistant_observer_failed";this.revision++;}return;}finally{this.observing=null;}
-    if(!this.closed&&!this.busy&&this.config.enabled&&this.config.auto_refresh&&existsSync(this.keyPath)&&this.events.due(this.config))this.start(()=>this.briefingWork(false));
+    if(!this.closed&&!this.busy&&this.config.enabled&&this.config.auto_refresh&&existsSync(this.keyPath)&&this.recovery.ready()){
+      const retry=this.recovery.pending()&&this.events.jobs("failed").length>0;
+      if(this.events.due(this.config)||retry)this.start(()=>this.briefingWork(false,retry));
+    }
   }
-  private async briefingWork(manual:boolean){
+  private async briefingWork(manual:boolean,retry=false){
     await this.events.observe(this.collector,this.config);if(this.closed)return;
-    const jobs=this.events.prepare(manual);
+    const jobs=this.events.prepare(manual||retry);
     try{await this.summarize(manual,jobs);}catch(error){if(!this.closed)this.events.fail(jobs,error instanceof Error?error.message:"summary_failed");throw error;}
   }
   private async summarize(manual=true,jobs:ObserverJob[]=[]) {

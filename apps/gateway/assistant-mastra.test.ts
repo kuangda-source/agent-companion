@@ -18,6 +18,15 @@ function fixture(){
   return{dir,collector,remove:()=>rmSync(dir,{recursive:true})};
 }
 function response(answer:string,refs:string[]=[]) {return Response.json({id:"fixture-completion",object:"chat.completion",model:"fixture-returned-model",created:1,choices:[{index:0,message:{role:"assistant",content:JSON.stringify({answer,source_ids:refs})},finish_reason:"stop"}],usage:{prompt_tokens:100,completion_tokens:20,total_tokens:120}});}
+test("Mastra preserves safe provider outage diagnosis and recovery without SDK retrying",async()=>{
+  const f=fixture();let calls=0;
+  const assistant=new Assistant(f.collector,f.dir,async()=>{calls++;return Response.json({error:{message:"No available accounts: private-provider-detail"}},{status:503});},{engines:{chat:new MastraAssistantEngine(f.dir)}});
+  try{
+    assistant.updateConfig({base_url:"https://api.example.org/v1",model:"fixture-model",enabled:true});assistant.ask("合成连通性问题");await assistant.settled();
+    expect(calls).toBe(1);expect(assistant.current().last_error).toBe("provider_no_accounts");expect(assistant.current().recovery.consecutive_failures).toBe(1);
+    expect(assistant.current().usage.requests).toBe(1);expect(assistant.messages()).toHaveLength(1);expect(JSON.stringify(assistant.current())).not.toContain("private-provider-detail");
+  }finally{await assistant.shutdown();f.remove();}
+});
 test("real Mastra SDK assembles confirmed preferences and accepted history, survives restart, and forgets deleted context",async()=>{
   const f=fixture(),requests:Record<string,unknown>[]=[];
   const make=()=>new Assistant(f.collector,f.dir,async(_url,options)=>{const body=object(JSON.parse(String(options.body)));requests.push(body);return response("合成回复");},{engines:{chat:new MastraAssistantEngine(f.dir)}});
