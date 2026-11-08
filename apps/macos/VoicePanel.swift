@@ -41,7 +41,7 @@ struct VoicePanel: View {
                     Button("保存播报设置") { save() }.accessibilityIdentifier("voice-save")
                     Button("生成测试音频") { testAudio() }.disabled(!config.enabled || config.muted || feed?.tts_available != true).accessibilityIdentifier("voice-test")
                 }
-                Text("准备阶段使用 Mac 系统语音生成音频，无需新增 API Key。测试只生成音频，不会在 Mac 自动出声。").font(.caption).foregroundStyle(model.theme.muted)
+                Text("语音来源在“API 设置”中配置。语音生成关闭时只整理消息，不调用 TTS；音频不会在 Mac 自动播放。").font(.caption).foregroundStyle(model.theme.muted)
                 if !notice.isEmpty { Text(notice).foregroundStyle(model.theme.accent).accessibilityIdentifier("voice-notice") }
             }
             card("播报规则") {
@@ -75,7 +75,7 @@ struct VoicePanel: View {
         Binding(get:{Calendar.current.startOfDay(for:Date()).addingTimeInterval(TimeInterval(config[keyPath:key]*60))},set:{let c=Calendar.current.dateComponents([.hour,.minute],from:$0);config[keyPath:key]=(c.hour ?? 0)*60+(c.minute ?? 0)})
     }
     private func refresh() async {
-        do { let value=try JSONDecoder().decode(VoiceFeed.self,from:await model.configurationRequest("api/v1/voice"));feed=value;if !loaded { config=value.configuration;loaded=true } }
+        do { let value=try JSONDecoder().decode(VoiceFeed.self,from:await model.configurationRequest("api/v1/voice"));feed=value;if notice=="暂时无法读取播报状态。" { notice="" };if !loaded { config=value.configuration;loaded=true } }
         catch { notice="暂时无法读取播报状态。" }
     }
     private func save() {

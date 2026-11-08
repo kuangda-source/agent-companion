@@ -104,6 +104,7 @@ export class AssistantEvents {
     const t=this.repo.triggers.get(id);return t?.meta.kind==="state"?[t.meta]:[];
   }).slice(-32);}
   analysisStarted(){this.set("last_model_at",this.clock());}
+  pendingReady(){return this.clock()-this.number("last_model_at")>=60000;}
   complete(jobs:ObserverJob[],publication?:ObserverPublication){
     for(const job of jobs){this.engine.report(job.ticket_id,{state:"ready",summary:publication?"Validated local project notification ready.":"Project context updated without a new notification."});this.db.query("UPDATE assistant_event_jobs SET state='completed',error=NULL WHERE assignment_id=?").run(job.assignment_id);}
     if(publication&&jobs[0])this.engine.reply({purpose:"result",ticketId:jobs[0].ticket_id,text:JSON.stringify(publication)});

@@ -4,7 +4,7 @@ import {join} from "node:path";
 export class CredentialStore {
   constructor(private runtime:string, private changed:(service:string)=>void=()=>{}) {}
   private file(service:string) {
-    if(service!=="assistant"&&service!=="deepseek")throw new Error("invalid_service");
+    if(service!=="assistant"&&service!=="deepseek"&&service!=="tts")throw new Error("invalid_service");
     return join(this.runtime,"secrets",service+"-api-key");
   }
   status(){return {assistant:existsSync(this.file("assistant")),deepseek:existsSync(this.file("deepseek"))};}

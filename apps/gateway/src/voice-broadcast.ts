@@ -13,7 +13,7 @@ export type DeliveryState='queued'|'preparing'|'ready'|'playing'|'played'|'cance
 export interface VoiceConfig {enabled:boolean;muted:boolean;quiet_enabled:boolean;quiet_start:number;quiet_end:number;provider:'system';voice:string}
 export interface VoiceNotice {id:string;topic:string;session_id:string|null;kind:VoiceKind;priority:number;text:string;created_at:number;expires_at:number;not_before:number;state:DeliveryState;audio_id:string|null}
 export interface VoiceAudio {id:string;codec:'pcm_s16le';sample_rate:16000;channels:1;bytes:number;sha256:string}
-export interface TTSPort {synthesize(text:string,voice:string,signal:AbortSignal):Promise<Uint8Array>}
+export interface TTSPort {available?():boolean;synthesize(text:string,voice:string,signal:AbortSignal):Promise<Uint8Array>}
 const initial=():VoiceConfig=>({enabled:false,muted:false,quiet_enabled:false,quiet_start:22*60,quiet_end:8*60,provider:'system',voice:''});
 const TTL:Record<VoiceKind,number>={input:120000,error:120000,completed:600000,milestone:600000,quota:900000};
 export function spoken(value:string,max=160){return [...redactSecrets(value).replace(/```[\s\S]*?```/g,'').replace(/https?:\/\/\S+/g,'').replace(/\[[^\]]*\]\([^)]*\)/g,'').replace(/[*#`>_]/g,'').replace(/\s+/g,' ').trim()].slice(0,max).join('');}
@@ -101,9 +101,9 @@ export class VoiceBroadcasts {
   }
   expire(){this.db.query("UPDATE voice_notices SET state='cancelled' WHERE expires_at<=? AND state IN ('queued','ready','preparing')").run(this.clock());this.db.exec("DELETE FROM voice_audio WHERE id NOT IN (SELECT audio_id FROM voice_notices WHERE audio_id IS NOT NULL AND state IN ('ready','playing') UNION SELECT audio_id FROM (SELECT audio_id FROM voice_notices WHERE state='played' AND audio_id IS NOT NULL ORDER BY created_at DESC LIMIT 8))");}
   list(){return this.db.query<VoiceNotice,[]>("SELECT * FROM voice_notices ORDER BY created_at DESC LIMIT 80").all();}
-  current(){this.expire();return{schema_version:1,configuration:this.configuration(),target:'device',device_audio_ready:false,status:!this.config.enabled?'disabled':this.config.muted?'muted':this.quiet()?'quiet':'awaiting_device_audio',notices:this.list(),tts_available:!!this.tts};}
+  current(){this.expire();return{schema_version:1,configuration:this.configuration(),target:'device',device_audio_ready:false,status:!this.config.enabled?'disabled':this.config.muted?'muted':this.quiet()?'quiet':'awaiting_device_audio',notices:this.list(),tts_available:!!this.tts&&(this.tts.available?.()??true)};}
   async prepareNext(force=false){
-    if(this.closed||this.busy||!this.config.enabled||this.config.muted||this.quiet()||!this.tts)return null;this.expire();
+    if(this.closed||this.busy||!this.config.enabled||this.config.muted||this.quiet()||!this.tts||this.tts.available?.()===false)return null;this.expire();
     if(this.db.query<{n:number},[]>("SELECT COUNT(*) AS n FROM voice_notices WHERE state='ready'").get()!.n>=8)return null;
     const now=this.clock(),last=Number(this.get('last_prepared')??0);if(!force&&now-last<15000)return null;
     const notice=this.db.query<VoiceNotice,[number]>("SELECT * FROM voice_notices WHERE state='queued' AND not_before<=? ORDER BY priority,created_at LIMIT 1").get(now);if(!notice)return null;

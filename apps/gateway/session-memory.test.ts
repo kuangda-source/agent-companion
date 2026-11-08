@@ -30,7 +30,21 @@ test('structured facts retain unmentioned questions, track resolutions and rejec
 
 test('known evidence replay can be acknowledged without rewriting facts or blocking later increments',async()=>{
  const f=fixture();try{const a=await f.memory.ingest(f.s,f.source,null,1000);f.memory.commit(f.s.id,a.through,f.memory.facts(f.s.id),{});
- f.db.query('UPDATE session_memory SET cursor=? WHERE id=?').run(JSON.stringify({...a.cursor,offset:0}),f.s.id);const replay=await f.memory.ingest(f.s,f.source,null,1000);expect(replay.evidence[0].id).toBe(a.evidence[0].id);f.memory.acknowledgeKnown(f.s.id,replay.through);
+ f.db.query('UPDATE session_memory SET cursor=? WHERE id=?').run(JSON.stringify({...a.cursor,offset:0}),f.s.id);const replay=await f.memory.ingest(f.s,f.source,null,1000);expect(replay.evidence).toHaveLength(0);f.memory.acknowledgeKnown(f.s.id,replay.through);
  appendFileSync(f.path,f.row('new after replay'));expect((await f.memory.ingest(f.s,f.source,null,1000)).evidence.map(e=>e.text)).toEqual(['new after replay']);
  }finally{f.close();}
+});
+
+test('unresolved questions remain stored beyond the prompt budget without blocking later summaries',async()=>{
+ const f=fixture();try{const batch=await f.memory.ingest(f.s,f.source,null,1000),e=batch.evidence[0],allowed=new Map([[e.id,e]]);
+ for(let page=0;page<3;page++){const facts=f.memory.merge(f.s.id,{open_questions:Array.from({length:10},(_,i)=>({key:'question_'+(page*10+i),text:'fixture unresolved item',source_ids:[e.id],stage:'reported',status:'open'}))},allowed);f.memory.commit(f.s.id,batch.through,facts,{});}
+ expect(f.memory.facts(f.s.id).open_questions).toHaveLength(30);expect(f.memory.prompt(f.s.id,1000).partial).toBe(true);expect(JSON.stringify(f.memory.prompt(f.s.id,1000)).length).toBeLessThanOrEqual(1000);
+ }finally{f.close();}
+});
+
+test('same-topic duplicates merge references and equal-time conflicting states remain unconfirmed',async()=>{
+ const {uniqueTopics}=await import('./src/assistant-validation.ts');const base={project_id:'fixture',key:'topic',source_at:100,source_ids:['one'],status:'open'};
+ expect(uniqueTopics([base,{...base,source_ids:['two']}],v=>v.status)[0].source_ids).toEqual(['one','two']);
+ expect(uniqueTopics([base,{...base,status:'resolved'}],v=>v.status)).toHaveLength(0);
+ expect(uniqueTopics([{...base,source_at:200,status:'resolved'},base],v=>v.status)[0].status).toBe('resolved');
 });

@@ -104,7 +104,7 @@ test("a busy provider does not crowd a second provider out of the recent-session
     const notes=sessions.map(s=>({session_id:s.session_id,summary:"待处理，尚未验收。",source_ids:[object(array(s.messages)[0]).id]}));
     return Response.json({choices:[{message:{content:JSON.stringify({projects:[{project_id:sessions[0].project_id,text:"两家均有工作。",source_ids:notes.flatMap(n=>n.source_ids)}],attention:[],sessions:notes})}}]});
   });
-  try{assistant.updateConfig({base_url:"https://api.example.org/v1",model:"fixture-model",enabled:true,max_sessions:3});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe("ready");expect(seen).toContain("deepseek");expect(seen).toHaveLength(3);}
+  try{assistant.updateConfig({base_url:"https://api.example.org/v1",model:"fixture-model",enabled:true,max_sessions:3});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe("ready");expect(seen).toContain("deepseek");expect(seen).toHaveLength(2);expect(assistant.current().coverage).toMatchObject({selected:3,analyzed:2,partial:true});}
   finally{assistant.close();f.remove();}
 });
 test("attention backed only by old messages is labeled historical rather than a current blocker",async()=>{
@@ -177,5 +177,29 @@ test('a changed conversation updates only its own model context and retains othe
 test('a temporarily unavailable voice queue does not undo accepted memory and retries from its durable outbox',async()=>{
  const f=fixture();let attempts=0;const assistant=new Assistant(f.collector,f.dir,async(_url,options)=>{const request=object(JSON.parse(String(options.body)));return completion(object(JSON.parse(String(object(array(request.messages)[1]).content))));});
  try{assistant.onImportantChange=()=>{attempts++;if(attempts===1)throw new Error('fixture queue offline');};assistant.updateConfig({enabled:true,base_url:'https://fixture.example/v1',model:'fixture-model'});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(assistant.messages()).toHaveLength(1);expect(attempts).toBe(1);await assistant.tick();expect(attempts).toBe(2);expect(assistant.current().usage.requests).toBe(1);
+ }finally{assistant.close();f.remove();}
+});
+
+test('backlog continues in bounded fair batches without new source messages',async()=>{
+ const f=fixture();let now=Date.now();const sessions=Array.from({length:4},(_,i)=>({...f.session,id:'codex:batch:'+i,provider_session_id:'batch-'+i})),seen:string[][]=[];
+ const collector={...f.collector,sessions:()=>sessions};
+ const assistant=new Assistant(collector,f.dir,async(_url,options)=>{
+  const body=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(body.messages)[1]).content))),items=array(payload.sessions).map(object);seen.push(items.map(s=>String(s.session_id)));
+  return Response.json({choices:[{message:{content:JSON.stringify({projects:[{project_id:items[0].project_id,text:'fixture batch',source_ids:[object(array(items[0].messages)[0]).id]}],attention:[],changes:[],sessions:items.map(s=>({session_id:s.session_id,summary:'fixture summary',source_ids:[object(array(s.messages)[0]).id]}))})}}]});
+ },{clock:()=>now});
+ try{assistant.updateConfig({enabled:true,base_url:'https://fixture.example/v1',model:'fixture-model'});assistant.refresh();await assistant.settled();expect(seen[0]).toHaveLength(2);expect(assistant.current().coverage).toMatchObject({analyzed:2,partial:true});
+ now+=61000;await assistant.tick();await assistant.settled();expect(seen[1]).toHaveLength(2);expect(seen[1].some(id=>seen[0].includes(id))).toBe(false);expect(assistant.current().briefing?.sessions).toHaveLength(4);expect(assistant.current().automation.incremental_memory?.pending).toBe(0);
+ }finally{assistant.close();f.remove();}
+});
+
+test('missing one note preserves its pending increment while valid notes commit and repeated topics collapse',async()=>{
+ const f=fixture(),sessions=[f.session,{...f.session,id:'codex:partial-other',provider_session_id:'partial-other'}];let call=0;
+ const assistant=new Assistant({...f.collector,sessions:()=>sessions},f.dir,async(_url,options)=>{
+  call++;const body=object(JSON.parse(String(options.body))),payload=object(JSON.parse(String(object(array(body.messages)[1]).content))),items=array(payload.sessions).map(object),first=items[0],ref=object(array(first.messages)[0]).id;
+  const change={project_id:first.project_id,key:'same_topic',kind:'milestone',text:'fixture milestone',source_ids:[ref]};
+  return Response.json({choices:[{message:{content:JSON.stringify({projects:[{project_id:first.project_id,text:'fixture summary',source_ids:[ref]}],attention:[],changes:[change,change],sessions:[{session_id:first.session_id,summary:'accepted one',source_ids:[ref]}]})}}]});
+ });
+ try{assistant.updateConfig({enabled:true,base_url:'https://fixture.example/v1',model:'fixture-model'});assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(assistant.current().briefing?.sessions).toHaveLength(1);expect(assistant.current().automation.incremental_memory!.pending).toBeGreaterThan(0);
+ assistant.refresh();await assistant.settled();expect(assistant.current().status).toBe('ready');expect(assistant.current().briefing?.sessions).toHaveLength(2);expect(assistant.current().automation.incremental_memory?.pending).toBe(0);expect(call).toBe(2);
  }finally{assistant.close();f.remove();}
 });

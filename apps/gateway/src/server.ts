@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import type {SpeechProvider} from "./speech-provider.ts";
 import type {VoiceBroadcasts} from "./voice-broadcast.ts";
 import { MockState } from "./scenarios.ts";
 import { timingSafeEqual } from "node:crypto";
@@ -84,7 +85,7 @@ export function createMockGateway(port = 8736, animate = false, phase = 0, setti
 }
 
 /** A local capability token protects conversation text even on loopback. */
-export function createLiveGateway(collector: Collector, token: string, port = 8736, pollMs = 2000, settings = new SettingsStore(), assistant?:Assistant, remote?:RemoteLink,lan?:LanLink,credentials?:CredentialStore,voice?:VoiceBroadcasts) {
+export function createLiveGateway(collector: Collector, token: string, port = 8736, pollMs = 2000, settings = new SettingsStore(), assistant?:Assistant, remote?:RemoteLink,lan?:LanLink,credentials?:CredentialStore,voice?:VoiceBroadcasts,speech?:SpeechProvider) {
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: Request) => {
     const actual = Buffer.from(request.headers.get("authorization") ?? "");
@@ -102,13 +103,16 @@ export function createLiveGateway(collector: Collector, token: string, port = 87
       if (origin && origin !== server.url.origin) return error("origin_denied", 403);
       if(path.startsWith("/api/v1/voice")&&voice){
         const headers={"Cache-Control":"no-store"};
+        if(path==="/api/v1/voice/provider"&&speech&&request.method==="GET")return Response.json(speech.configuration(),{headers});
         if(path==="/api/v1/voice"&&request.method==="GET")return Response.json(voice.current(),{headers});
         if(request.method!=="PATCH"&&request.method!=="POST")return error("method_not_allowed",405);
         if(!request.headers.get("content-type")?.startsWith("application/json"))return error("json_required",415);
         try{const raw=await request.text();if(raw.length>1024)return error("request_too_large",413);const body:unknown=JSON.parse(raw);
+          if(path==="/api/v1/voice/provider"&&speech&&request.method==="PATCH")return Response.json(speech.update(body),{headers});
           if(path==="/api/v1/voice/config"&&request.method==="PATCH")return Response.json(voice.update(body),{headers});
           if(path==="/api/v1/voice/test"&&request.method==="POST"){
             if(!body||typeof body!=="object"||Array.isArray(body)||Object.keys(body).length)return error("invalid_voice_test",400);
+            if(speech&&!speech.available())return error("speech_disabled",409);
             if(!voice.configuration().enabled||voice.configuration().muted)return error("voice_disabled",409);
             voice.enqueue({id:crypto.randomUUID(),topic:"test",kind:"milestone",text:"这是 Agent Companion 的语音播报测试。"});void voice.prepareNext(true);
             return Response.json({status:"preparing_audio",output:"device_pending"},{status:202,headers});
