@@ -14,6 +14,7 @@
 static const uint32_t colors[AC_AGENT_COUNT] = {0x00ffff, 0xff00ff, 0x009dff, 0xffa84a};
 static const char *names[AC_AGENT_COUNT] = {"CODEX", "CLAUDE", "DEEPSEEK", "GROK"};
 static lv_obj_t *cards[AC_AGENT_COUNT], *card_status[AC_AGENT_COUNT], *card_counts[AC_AGENT_COUNT], *card_quota[AC_AGENT_COUNT];
+static lv_obj_t *card_quota_reset[AC_AGENT_COUNT];
 static lv_obj_t *quota_tracks[AC_AGENT_COUNT], *quota_fills[AC_AGENT_COUNT], *pet_slots[AC_AGENT_COUNT], *card_names[AC_AGENT_COUNT];
 static ac_pet_widget_t *pets[AC_AGENT_COUNT];
 static lv_obj_t *header_status, *header_clock, *panel_title, *notice, *panel;
@@ -38,7 +39,7 @@ static int selected;
 static char selected_session[AC_ID_CAPACITY];
 static uint64_t detail_checksum;
 static uint64_t received_ms, clock_ms, toast_until, header_updated_ms;
-static uint64_t glow_updated_ms;
+static uint64_t glow_updated_ms,quota_updated_ms;
 static ac_observation_health_t transport_health = AC_OBSERVATION_DISCONNECTED;
 static ac_detail_request_fn detail_request;
 uint32_t ac_bootstrap_screen_pet_frame_updates(unsigned agent){return agent<AC_AGENT_COUNT?ac_pet_widget_frame_updates(pets[agent]):0;}
@@ -174,8 +175,57 @@ static void layout_cards(void) {
         lv_obj_set_pos(cards[id],12,60+(height+8)*(int)slot);lv_obj_set_height(cards[id],height);
         lv_obj_set_y(pet_slots[id],center);lv_obj_set_y(card_names[id],center);
         lv_obj_set_y(card_status[id],center+39);lv_obj_set_y(card_counts[id],center+66);lv_obj_set_y(card_quota[id],center+93);
+        lv_obj_set_y(card_quota_reset[id],center+93);
         lv_obj_set_height(quota_tracks[id],height-34);
     }
+}
+static void render_quota(int i)
+{
+    const ac_agent_t *a=&current.agents[i];
+    ac_observation_health_t h=transport_health==AC_OBSERVATION_FRESH?a->health:transport_health;
+    const ac_balance_t *balance=&a->balance;
+    ac_quota_view_t quota=ac_quota_view(a->quota,AC_OBSERVATION_FRESH);
+    bool quota_old=i==AC_AGENT_GROK?transport_health!=AC_OBSERVATION_FRESH:a->quota_stale||h!=AC_OBSERVATION_FRESH;
+    bool money=balance->available;
+    bool money_fresh=money&&balance->health==AC_OBSERVATION_FRESH&&transport_health==AC_OBSERVATION_FRESH;
+    if(money){
+        double used=balance->budget>0?1-balance->total/balance->budget:0;
+        if(used<0)used=0;if(used>1)used=1;
+        quota=ac_quota_view((ac_metric_t){.available=balance->budget>0,.value=used},money_fresh?AC_OBSERVATION_FRESH:AC_OBSERVATION_STALE);
+    }
+    static const uint32_t quota_colors[]={0x006877,0x00ffad,0xffe600,0xff3973};
+    uint32_t quota_color=quota_colors[quota.band];
+    bool reset_visible=!money&&quota.available&&a->quota_reset_epoch>0&&current.generated_epoch>0;
+    hide(card_quota_reset[i],!reset_visible);
+    lv_obj_set_style_text_font(card_quota[i],ac_theme_font(reset_visible?13:16),0);ellipsis(card_quota[i],reset_visible?76:146);
+    if(money){
+        const char *currency=strcmp(balance->currency,"CNY")==0?"¥":"$";
+        lv_label_set_text_fmt(card_quota[i],"%s %s%.2f",money_fresh?"余额":"上次",currency,balance->total);
+    }else if(quota.available){
+        char window[24];unsigned mins=a->quota_minutes;
+        if(mins%1440==0)snprintf(window,sizeof(window),"%ud",mins/1440);
+        else if(mins%60==0)snprintf(window,sizeof(window),"%uh",mins/60);
+        else snprintf(window,sizeof(window),"%um",mins);
+        if(reset_visible)lv_label_set_text_fmt(card_quota[i],quota_old?"上次%s%.0f%%":"%s余%.0f%%",window,quota.remaining_ratio*100);
+        else lv_label_set_text_fmt(card_quota[i],"%s%s 剩余 %.0f%%",quota_old?"上次 ":"",window,quota.remaining_ratio*100);
+    }else lv_label_set_text(card_quota[i],i==AC_AGENT_DEEPSEEK?"余额 —":"额度 —");
+    if(reset_visible){
+        int64_t now=current.generated_epoch+(clock_ms>=received_ms?(int64_t)((clock_ms-received_ms)/1000):0);
+        char value[48];ac_quota_reset_countdown(value,sizeof(value),a->quota_reset_epoch,now,!quota_old);
+        /* 到期只显示待确认，不推定额度已重置；过期观测显示待更新。 */
+        lv_label_set_text_fmt(card_quota_reset[i],"%s%s",value,quota_old||a->quota_reset_epoch<=now?"":"重置");
+        lv_obj_set_style_text_font(card_quota_reset[i],ac_theme_font(13),0);
+        lv_obj_set_style_text_color(card_quota_reset[i],ac_color(0x70d6e2),0);
+    }
+    uint32_t text_color=money?(money_fresh?(balance->total>0?0x00ffad:0xff3973):0x70d6e2):quota.available?quota_color:0x70d6e2;
+    lv_obj_set_style_text_color(card_quota[i],ac_color(text_color),0);
+    int track_height=lv_obj_get_height(quota_tracks[i]);
+    int fill_height=quota.available?(int)(quota.remaining_ratio*track_height+0.5):0;
+    if(quota.available&&quota.remaining_ratio>0&&fill_height==0)fill_height=1;
+    hide(quota_fills[i],fill_height==0);
+    lv_obj_set_size(quota_fills[i],6,fill_height>0?fill_height:1);
+    lv_obj_set_pos(quota_fills[i],0,track_height-fill_height);
+    lv_obj_set_style_bg_color(quota_fills[i],ac_color(quota_color),0);
 }
 static void render_cards(const char *completions[AC_AGENT_COUNT])
 {
@@ -190,36 +240,7 @@ static void render_cards(const char *completions[AC_AGENT_COUNT])
         else if(!a->total) lv_label_set_text(card_counts[i],i==AC_AGENT_CLAUDE?"未发现 Code 记录":"未发现会话");
         else if(a->running || a->waiting) lv_label_set_text_fmt(card_counts[i],"%u 运行 · %u 等待",a->running,a->waiting);
         else lv_label_set_text_fmt(card_counts[i],i==AC_AGENT_GROK?"%u 个 Bot":"%u 个本地会话",a->total);
-        const ac_balance_t *balance=&a->balance;
-        ac_quota_view_t quota=ac_quota_view(a->quota,AC_OBSERVATION_FRESH);
-        bool quota_old=i==AC_AGENT_GROK?transport_health!=AC_OBSERVATION_FRESH:a->quota_stale||h!=AC_OBSERVATION_FRESH;
-        bool money=balance->available;
-        bool money_fresh=money && balance->health==AC_OBSERVATION_FRESH && transport_health==AC_OBSERVATION_FRESH;
-        if(money) {
-            double used=balance->budget>0?1-balance->total/balance->budget:0;
-            if(used<0) used=0; if(used>1) used=1;
-            quota=ac_quota_view((ac_metric_t){.available=balance->budget>0,.value=used},money_fresh?AC_OBSERVATION_FRESH:AC_OBSERVATION_STALE);
-        }
-        static const uint32_t quota_colors[]={0x006877,0x00ffad,0xffe600,0xff3973};
-        uint32_t quota_color=quota_colors[quota.band];
-        if(money) {
-            const char *currency=strcmp(balance->currency,"CNY")==0?"¥":"$";
-            lv_label_set_text_fmt(card_quota[i],"%s %s%.2f",money_fresh?"余额":"上次",currency,balance->total);
-        } else if(quota.available) {
-            unsigned mins=a->quota_minutes;
-            if(mins%1440==0) lv_label_set_text_fmt(card_quota[i],"%s%ud 剩余 %.0f%%",quota_old?"上次 ":"",mins/1440,quota.remaining_ratio*100);
-            else if(mins%60==0) lv_label_set_text_fmt(card_quota[i],"%s%uh 剩余 %.0f%%",quota_old?"上次 ":"",mins/60,quota.remaining_ratio*100);
-            else lv_label_set_text_fmt(card_quota[i],"%s%um 剩余 %.0f%%",quota_old?"上次 ":"",mins,quota.remaining_ratio*100);
-        } else lv_label_set_text(card_quota[i],i==AC_AGENT_DEEPSEEK?"余额 —":"额度 —");
-        uint32_t text_color=money?(money_fresh?(balance->total>0?0x00ffad:0xff3973):0x70d6e2):quota.available?quota_color:0x70d6e2;
-        lv_obj_set_style_text_color(card_quota[i],ac_color(text_color),0);
-        int track_height=lv_obj_get_height(quota_tracks[i]);
-        int fill_height=quota.available?(int)(quota.remaining_ratio*track_height+0.5):0;
-        if(quota.available && quota.remaining_ratio>0 && fill_height==0) fill_height=1;
-        hide(quota_fills[i],fill_height==0);
-        lv_obj_set_size(quota_fills[i],6,fill_height>0?fill_height:1);
-        lv_obj_set_pos(quota_fills[i],0,track_height-fill_height);
-        lv_obj_set_style_bg_color(quota_fills[i],ac_color(quota_color),0);
+        render_quota(i);
         lv_obj_set_style_border_color(cards[i],ac_color(i==selected?colors[i]:0x006877),0);
         lv_obj_set_style_border_width(cards[i],1,0);
         lv_obj_set_style_border_opa(cards[i],ac_theme_current()==AC_THEME_NEON?(i==selected?LV_OPA_COVER:LV_OPA_30):0,0);
@@ -463,6 +484,7 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
         lv_obj_add_event_cb(card_status[i],status_bubble,LV_EVENT_DRAW_MAIN_BEGIN,NULL);lv_obj_add_event_cb(card_status[i],status_bubble,LV_EVENT_REFR_EXT_DRAW_SIZE,NULL);lv_obj_refresh_ext_draw_size(card_status[i]);
         card_counts[i]=text(cards[i],128,81,"会话 —",0xb8faff); ellipsis(card_counts[i],146);
         card_quota[i]=text(cards[i],128,108,"额度 —",0x70d6e2); ellipsis(card_quota[i],146);
+        card_quota_reset[i]=text(cards[i],208,108,"",0x70d6e2);ellipsis(card_quota_reset[i],66);lv_obj_set_style_text_align(card_quota_reset[i],LV_TEXT_ALIGN_RIGHT,0);hide(card_quota_reset[i],true);
         quota_tracks[i]=box(cards[i],282,17,6,108,0x006877); lv_obj_set_style_border_width(quota_tracks[i],0,0); lv_obj_set_style_radius(quota_tracks[i],3,0); lv_obj_set_style_clip_corner(quota_tracks[i],true,0);
         quota_fills[i]=box(quota_tracks[i],0,0,6,108,0x006877); lv_obj_set_style_border_width(quota_fills[i],0,0); lv_obj_set_style_radius(quota_fills[i],3,0);
     }
@@ -586,6 +608,7 @@ void ac_bootstrap_screen_tick(uint64_t now)
         if(has_snapshot && health!=AC_OBSERVATION_FRESH) show_notice("连接中断 · 保留最后记录，状态动作已降级",2200);
     }
     for(int i=0;i<AC_AGENT_COUNT;++i) if(agent_visible(i))ac_pet_widget_tick(pets[i],now);
+    if(now-quota_updated_ms>=1000){quota_updated_ms=now;for(int i=0;i<AC_AGENT_COUNT;++i)if(agent_visible(i))render_quota(i);}
     if(animations_enabled && ac_theme_current()==AC_THEME_NEON && now-glow_updated_ms>=80) {
         glow_updated_ms=now;
         lv_opa_t glow=(lv_opa_t)(45+25*(sin((double)(now%2800)*6.283185307179586/2800)+1)/2);

@@ -133,6 +133,16 @@ int main(void)
     quota.value=NAN; assert(!ac_quota_view(quota,AC_OBSERVATION_FRESH).available);
     quota.value=0.2; assert(!ac_quota_view(quota,AC_OBSERVATION_STALE).available);
     quota.available=false; assert(ac_quota_view(quota,AC_OBSERVATION_FRESH).band==AC_QUOTA_UNKNOWN);
+    char reset[48];int64_t now=1800000000;
+    ac_quota_reset_countdown(reset,sizeof(reset),now+2*86400+4*3600,now,true);assert(!strcmp(reset,"2d04h"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now+3660,now,true);assert(!strcmp(reset,"1h01m"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now+90,now,true);assert(!strcmp(reset,"1m30s"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now+59,now,true);assert(!strcmp(reset,"59s"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now,now,true);assert(!strcmp(reset,"待确认"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now-10,now,true);assert(!strcmp(reset,"待确认"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now+90,now,false);assert(!strcmp(reset,"待更新"));
+    ac_quota_reset_countdown(reset,sizeof(reset),0,now,true);assert(!reset[0]);
+    ac_quota_reset_countdown(reset,sizeof(reset),now+90,0,true);assert(!reset[0]);
     ac_usage_stats_t stats={.day_count=30,.partial=true,.available={true,false,true}};
     for(int i=0;i<30;++i) { stats.days[i].tokens[0]=(ac_metric_t){.available=true,.value=10}; stats.days[i].tokens[2]=(ac_metric_t){.available=true,.value=20}; }
     ac_metric_t week=ac_usage_total(&stats,-1,7);

@@ -18,7 +18,7 @@ int main(int argc,char **argv)
         fixture[@"generated_at"]=[format stringFromDate:NSDate.date];
         ac_snapshot_t snapshot;
         assert(decode(fixture,&snapshot,true));
-        assert(snapshot.mock && snapshot.agents[0].session_count==5);
+        assert(snapshot.mock && snapshot.agents[0].session_count==5);assert(llabs(snapshot.generated_epoch-(int64_t)NSDate.date.timeIntervalSince1970)<=1);
         assert(snapshot.token_statistics.day_count==30 && ac_usage_total(&snapshot.token_statistics,-1,7).available);
         NSMutableDictionary *statistics=fixture[@"token_statistics"];
         NSMutableArray *days=statistics[@"days"];
@@ -30,12 +30,13 @@ int main(int argc,char **argv)
         assert(decode(fixture,&snapshot,true));
         assert(snapshot.agents[2].balance.available && snapshot.agents[2].balance.total==25.13 && snapshot.agents[2].balance.budget==0);
         NSMutableDictionary *codex=fixture[@"agents"][0];
-        NSDictionary *short_window=@{@"window_minutes":@300,@"used_ratio":@{@"value":@0.1,@"quality":@"confirmed",@"source":@"test",@"observed_at":fixture[@"generated_at"]},@"resets_at":NSNull.null};
-        NSDictionary *week_window=@{@"window_minutes":@10080,@"used_ratio":@{@"value":@0.64,@"quality":@"confirmed",@"source":@"test",@"observed_at":fixture[@"generated_at"]},@"resets_at":NSNull.null};
+        NSDictionary *short_window=@{@"window_minutes":@300,@"used_ratio":@{@"value":@0.1,@"quality":@"confirmed",@"source":@"test",@"observed_at":fixture[@"generated_at"]},@"resets_at":@"2027-01-15T08:01:30.000Z"};
+        NSDictionary *week_window=@{@"window_minutes":@10080,@"used_ratio":@{@"value":@0.64,@"quality":@"confirmed",@"source":@"test",@"observed_at":fixture[@"generated_at"]},@"resets_at":@"2027-01-16T08:01:30.000Z"};
         codex[@"quota"]=@[short_window,week_window]; assert(decode(fixture,&snapshot,true));
-        assert(snapshot.agents[0].quota_minutes==10080 && snapshot.agents[0].quota.value==0.64);
+        assert(snapshot.agents[0].quota_minutes==10080 && snapshot.agents[0].quota.value==0.64);assert(snapshot.agents[0].quota_reset_epoch==1800086490);
         codex[@"quota"]=@[week_window,short_window]; assert(decode(fixture,&snapshot,true));
-        assert(snapshot.agents[0].quota_minutes==10080 && snapshot.agents[0].quota.value==0.64);
+        assert(snapshot.agents[0].quota_minutes==10080 && snapshot.agents[0].quota.value==0.64);assert(snapshot.agents[0].quota_reset_epoch==1800086490);
+        NSMutableDictionary *unknown_reset=[week_window mutableCopy];unknown_reset[@"resets_at"]=NSNull.null;codex[@"quota"]=@[unknown_reset,short_window];assert(decode(fixture,&snapshot,true));assert(snapshot.agents[0].quota_reset_epoch==0);
         assert(ac_quota_view(snapshot.agents[0].quota,AC_OBSERVATION_FRESH).band==AC_QUOTA_YELLOW);
         codex[@"quota"]=@[[week_window mutableCopy]];((NSMutableDictionary *)codex[@"quota"][0])[@"health"]=@"stale";assert(decode(fixture,&snapshot,true));assert(snapshot.agents[0].quota_stale);
         codex[@"quota"]=@[week_window];assert(decode(fixture,&snapshot,true));assert(!snapshot.agents[0].quota_stale);

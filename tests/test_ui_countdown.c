@@ -1,6 +1,7 @@
 /* Reproduce a snapshot arriving between two UI ticks, before any subsequent tick. */
 #include "lvgl.h"
 #include "ac_bootstrap_screen.h"
+#include "ac_theme.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +13,15 @@ static bool contains(lv_obj_t *o,const char *s){
     if(lv_obj_check_type(o,&lv_label_class)&&strstr(lv_label_get_text(o),s))return true;
     for(uint32_t i=0;i<lv_obj_get_child_count(o);i++)if(contains(lv_obj_get_child(o,i),s))return true;
     return false;
+}
+static lv_obj_t *label_with(lv_obj_t *o,const char *s){
+    if(lv_obj_has_flag(o,LV_OBJ_FLAG_HIDDEN))return NULL;
+    if(lv_obj_check_type(o,&lv_label_class)&&!strcmp(lv_label_get_text(o),s))return o;
+    for(uint32_t i=0;i<lv_obj_get_child_count(o);i++){lv_obj_t *found=label_with(lv_obj_get_child(o,i),s);if(found)return found;}
+    return NULL;
+}
+static void label_fits(lv_obj_t *label){
+    lv_point_t size;lv_text_get_size(&size,lv_label_get_text(label),lv_obj_get_style_text_font(label,0),lv_obj_get_style_text_letter_space(label,0),0,10000,0);assert(size.x<=lv_obj_get_width(label));
 }
 int main(void){
     lv_init();lv_display_t *display=lv_display_create(1024,600);lv_display_set_color_format(display,LV_COLOR_FORMAT_RGB565);lv_display_set_buffers(display,pixels,NULL,sizeof(pixels),LV_DISPLAY_RENDER_MODE_FULL);lv_display_set_flush_cb(display,flush);ac_bootstrap_screen_create(false,true,NULL);
@@ -43,5 +53,25 @@ int main(void){
     ac_session_t *bot=&grok->sessions[0];strcpy(bot->id,"example-bot");strcpy(bot->title,"Example Bot");strcpy(bot->latest_message,"Recent public message");bot->latest_message_assistant=true;bot->health=AC_OBSERVATION_FRESH;bot->state=AC_STATE_UNKNOWN;bot->quality=AC_QUALITY_UNKNOWN;
     snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1029);assert(contains(lv_screen_active(),"Recent public message"));assert(contains(lv_screen_active(),"状态未知"));assert(!contains(lv_screen_active(),"IN / OUT"));assert(!contains(lv_screen_active(),"CACHE"));assert(!contains(lv_screen_active(),"CTX"));assert(!contains(lv_screen_active(),"TIME"));assert(contains(lv_screen_active(),"7d 剩余 90%"));assert(!contains(lv_screen_active(),"上次 7d"));
     snapshot.agent_order[0]=AC_AGENT_CODEX;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1030);assert(contains(lv_screen_active(),"IN / OUT"));assert(contains(lv_screen_active(),"TIME"));assert(contains(lv_screen_active(),"还剩"));assert(!contains(lv_screen_active(),"Recent public message"));
+    snapshot.generated_epoch=1800000000;snapshot.agents[0].quota_reset_epoch=1800000091;
+    snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,2000);assert(contains(lv_screen_active(),"7d余36%"));assert(contains(lv_screen_active(),"1m31s重置"));
+    ac_bootstrap_screen_tick(3000);assert(contains(lv_screen_active(),"1m30s重置"));
+    for(int theme=0;theme<AC_THEME_COUNT;theme++){
+        ac_theme_apply(lv_screen_active(),(ac_theme_id_t)theme);snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,4000+theme);
+        lv_obj_update_layout(lv_screen_active());lv_obj_t *left=label_with(lv_screen_active(),"7d余36%"),*right=label_with(lv_screen_active(),"1m31s重置");assert(left&&right);
+        lv_area_t a,b;lv_obj_get_coords(left,&a);lv_obj_get_coords(right,&b);assert(a.x2<b.x1&&a.y1==b.y1);
+        label_fits(left);label_fits(right);
+        snapshot.agents[0].quota.value=0;snapshot.agents[0].quota_stale=true;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,4000+theme);
+        lv_obj_update_layout(lv_screen_active());left=label_with(lv_screen_active(),"上次7d100%");assert(left);label_fits(left);assert(contains(lv_screen_active(),"待更新"));
+        snapshot.agents[0].quota.value=.64;snapshot.agents[0].quota_stale=false;
+    }
+    snapshot.agents[0].quota_reset_epoch=snapshot.generated_epoch+1;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,5000);
+    ac_bootstrap_screen_tick(6000);assert(contains(lv_screen_active(),"待确认"));assert(contains(lv_screen_active(),"7d余36%"));
+    ac_bootstrap_screen_tick(12000);assert(contains(lv_screen_active(),"待更新"));
+    snapshot.agents[0].quota_reset_epoch=0;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,13000);assert(contains(lv_screen_active(),"7d 剩余 36%"));assert(!contains(lv_screen_active(),"待确认"));
+    snapshot.agent_order[0]=AC_AGENT_GROK;grok->quota_reset_epoch=snapshot.generated_epoch+2*86400+4*3600;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,14000);
+    assert(contains(lv_screen_active(),"7d余90%"));assert(contains(lv_screen_active(),"2d04h重置"));assert(!contains(lv_screen_active(),"上次7d"));
+    grok->balance=(ac_balance_t){.available=true,.health=AC_OBSERVATION_FRESH,.total=12.34};strcpy(grok->balance.currency,"CNY");snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,15000);
+    assert(contains(lv_screen_active(),"余额 ¥12.34"));assert(!contains(lv_screen_active(),"2d04h重置"));
     ac_bootstrap_screen_destroy();lv_display_delete(display);lv_deinit();puts("PASS snapshot clock and scheduled conversation: running replaces future, no duplicate, completion restores countdown");return 0;
 }

@@ -66,6 +66,20 @@ ac_quota_view_t ac_quota_view(ac_metric_t used, ac_observation_health_t health)
     return result;
 }
 
+void ac_quota_reset_countdown(char *out,size_t capacity,int64_t reset_epoch,int64_t now,bool fresh)
+{
+    if(reset_epoch<=0||now<1700000000){if(capacity)out[0]=0;return;}
+    if(!fresh){snprintf(out,capacity,"待更新");return;}
+    int64_t left=reset_epoch-now;
+    if(left<=0){snprintf(out,capacity,"待确认");return;}
+    long long seconds=(long long)left;
+    if(seconds>=100*86400)snprintf(out,capacity,"%lldd",seconds/86400);
+    else if(seconds>=86400)snprintf(out,capacity,"%lldd%02lldh",seconds/86400,seconds%86400/3600);
+    else if(seconds>=3600)snprintf(out,capacity,"%lldh%02lldm",seconds/3600,seconds%3600/60);
+    else if(seconds>=60)snprintf(out,capacity,"%lldm%02llds",seconds/60,seconds%60);
+    else snprintf(out,capacity,"%llds",seconds);
+}
+
 ac_pet_expression_t ac_expression_for(ac_state_t state, ac_data_quality_t quality,
                                     ac_observation_health_t health)
 {

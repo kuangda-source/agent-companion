@@ -15,6 +15,12 @@ int main(int argc,char **argv){
     set(power_json,"brightness_percent",cJSON_CreateNumber(0));set(power_json,"screen_on",cJSON_CreateFalse());assert(ac_device_display_command(power_json,&power));assert(!power.screen_on&&power.brightness_percent==0);
     set(power_json,"screen_on",cJSON_CreateNumber(0));assert(!ac_device_display_command(power_json,&power));cJSON_Delete(power_json);
     time_t now=time(NULL);struct tm tm;gmtime_r(&now,&tm);char at[32];strftime(at,sizeof(at),"%Y-%m-%dT%H:%M:%SZ",&tm);set(base,"generated_at",cJSON_CreateString(at));set(base,"data_source",cJSON_CreateString("live"));assert(ac_device_snapshot(base,&snapshot));assert(snapshot.seq>0);
+    assert(snapshot.generated_epoch==(int64_t)now);
+    cJSON *quota_fixture=cJSON_Duplicate(base,1),*qa=cJSON_GetArrayItem(cJSON_GetObjectItem(quota_fixture,"agents"),0);
+    cJSON *windows=cJSON_Parse("[{\"window_minutes\":300,\"used_ratio\":{\"value\":0.1,\"quality\":\"confirmed\"},\"resets_at\":\"2027-01-15T08:01:30Z\"},{\"window_minutes\":10080,\"used_ratio\":{\"value\":0.64,\"quality\":\"confirmed\"},\"resets_at\":\"2027-01-16T08:01:30.000Z\"}]");set(qa,"quota",windows);
+    assert(ac_device_snapshot(quota_fixture,&snapshot));assert(snapshot.agents[0].quota_minutes==10080&&snapshot.agents[0].quota_reset_epoch==1800086490);
+    cJSON *weekly=cJSON_GetArrayItem(windows,1);set(weekly,"resets_at",cJSON_CreateNull());assert(ac_device_snapshot(quota_fixture,&snapshot));assert(snapshot.agents[0].quota_reset_epoch==0);
+    set(weekly,"resets_at",cJSON_CreateString("not-a-date"));assert(ac_device_snapshot(quota_fixture,&snapshot));assert(snapshot.agents[0].quota_reset_epoch==0);cJSON_Delete(quota_fixture);
     cJSON *schedule_fixture=cJSON_Duplicate(base,1);
     cJSON *schedules=cJSON_Parse("{\"status\":\"ready\",\"as_of_epoch\":1800000000,\"sources\":[{\"agent_id\":\"codex\",\"quality\":\"confirmed\"}],\"tasks\":[{\"agent_id\":\"codex\",\"title\":\"Next run\",\"thread_title\":\"Conversation title\",\"status\":\"active\",\"next_run_at\":\"2027-01-15T08:01:30Z\"},{\"agent_id\":\"codex\",\"title\":\"Paused\",\"status\":\"paused\"}]}");assert(schedules);set(schedule_fixture,"scheduled_tasks",schedules);
     assert(ac_device_snapshot(schedule_fixture,&snapshot));assert(snapshot.schedules.agents[0].count==1&&snapshot.schedules.agents[0].fresh&&snapshot.schedules.agents[0].available);assert(!strcmp(snapshot.schedules.agents[0].tasks[0].thread_title,"Conversation title"));assert(snapshot.schedules.agents[0].tasks[0].next_epoch==1800000090);

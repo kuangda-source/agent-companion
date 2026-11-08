@@ -144,6 +144,7 @@ static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_moc
     dest->seq=(uint64_t)seq; copy_text(dest->generated_at, sizeof(dest->generated_at), s[@"generated_at"]);
     NSDate *date=date_from(s[@"generated_at"]);
     if(!date || fabs(date.timeIntervalSinceNow)>10) return false;
+    dest->generated_epoch=(int64_t)date.timeIntervalSince1970;
     if(!statistics_decode(&dest->token_statistics,s[@"token_statistics"])) return false;
     NSArray *ids=@[@"codex", @"claude", @"deepseek", @"grok"]; unsigned seen=0;
     for(int i=0;i<AC_AGENT_COUNT;++i){dest->agents[i].state=AC_STATE_UNKNOWN;dest->agents[i].quality=AC_QUALITY_UNKNOWN;}
@@ -163,6 +164,7 @@ static bool snapshot_decode(ac_snapshot_t *dest, NSDictionary *s, bool allow_moc
             if(!used.available || used.value>1 || minutes<=0 || minutes>1000000 || floor(minutes)!=minutes) continue;
             if(!agent->quota.available || used.value>agent->quota.value || (used.value==agent->quota.value && minutes<agent->quota_minutes)) {
                 agent->quota=used; agent->quota_minutes=(unsigned)minutes;agent->quota_stale=[q[@"health"] isEqual:@"stale"];
+                NSDate *reset=date_from(q[@"resets_at"]);agent->quota_reset_epoch=reset?(int64_t)reset.timeIntervalSince1970:0;
             }
         }
     }

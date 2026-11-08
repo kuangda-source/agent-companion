@@ -34,6 +34,8 @@ ac_metric_t ac_usage_total(const ac_usage_stats_t *stats, int agent, unsigned da
 typedef enum { AC_QUOTA_UNKNOWN, AC_QUOTA_GREEN, AC_QUOTA_YELLOW, AC_QUOTA_RED } ac_quota_band_t;
 typedef struct { bool available; double remaining_ratio; ac_quota_band_t band; } ac_quota_view_t;
 ac_quota_view_t ac_quota_view(ac_metric_t used, ac_observation_health_t health);
+/* Empty when no reset deadline is known; reaching zero does not imply a reset. */
+void ac_quota_reset_countdown(char *out,size_t capacity,int64_t reset_epoch,int64_t now,bool fresh);
 typedef struct {
     char id[96];
     bool assistant;
@@ -66,6 +68,7 @@ typedef struct {
     ac_metric_t quota;
     unsigned quota_minutes;
     bool quota_stale;
+    int64_t quota_reset_epoch;
     ac_balance_t balance;
     ac_session_t sessions[AC_SESSION_LIMIT];
     size_t session_count;
@@ -76,6 +79,7 @@ typedef struct {
     uint64_t seq;
     bool mock;
     char generated_at[32];
+    int64_t generated_epoch;
     ac_agent_t agents[AC_AGENT_COUNT];
     size_t agent_count; ac_agent_id_t agent_order[AC_VISIBLE_AGENT_LIMIT];
     ac_usage_stats_t token_statistics;
