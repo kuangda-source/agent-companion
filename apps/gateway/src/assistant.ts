@@ -16,6 +16,7 @@ import {briefingOutputSchema} from "./assistant-output-schema.ts";
 import {invalidOutput,uniqueTopics,VALIDATION_STAGES} from "./assistant-validation.ts";
 import {assistantProviderBody,assistantSessionBatch} from "./assistant-provider-options.ts";
 import {SessionMemory,type SessionFacts} from "./session-memory.ts";
+import {AssistantHistory,historicalExcerpt,type HistoryQuery} from "./assistant-history.ts";
 
 export interface AssistantConfig {
   enabled:boolean; auto_refresh:boolean; base_url:string; model:string;
@@ -64,6 +65,7 @@ export class Assistant {
   private busy=false;
   private closed=false;
   private sessionMemory:SessionMemory;
+  private historicalMemory:AssistantHistory;
   private engineOperation:AssistantOperation="briefing";
   private outputSchema:Record<string,unknown>|undefined;
   onImportantChange?:(change:ImportantChange,sessionId?:string)=>void;
@@ -110,6 +112,7 @@ export class Assistant {
     this.modelGateway=new AssistantModelGateway((body,signal,operationId)=>this.providerCompletion(body,signal,operationId));
     this.sessionMemory=new SessionMemory(this.db);
     this.events=new AssistantEvents(this.db,()=>this.now(),this.sessionMemory);this.notifications=new AssistantNotifications(this.db,()=>this.now());
+    this.historicalMemory=new AssistantHistory(this.db);this.historicalMemory.backfill();
     this.recovery=new AssistantProviderRecovery(this.db,()=>this.now());
     if(this.recovery.pending()){this.status="failed";this.lastError=this.recovery.current().last_error;}
     this.revision=Number(this.db.query<{n:number},[]>("SELECT COALESCE(MAX(seq),0) AS n FROM messages").get()?.n??0);
@@ -123,6 +126,8 @@ export class Assistant {
   }
   memory(){return this.userMemory.view();}
   sessionFacts(id:string){return this.sessionMemory.facts(id);}
+  historicalEvents(query:HistoryQuery={}){return this.historicalMemory.search({...query,agent_ids:this.collector.current().agents.map(a=>a.id)});}
+  historicalEvent(id:string){const event=this.historicalMemory.get(id);return event&&this.collector.current().agents.some(a=>event.session_id.startsWith(a.id+':'))?event:null;}
   remember(value:string) {
     if(this.busy)throw new Error("assistant_busy");
     const record=this.userMemory.remember(value,{conversation_id:this.identityValue.conversation_id,message_id:null,timestamp:new Date().toISOString()});this.revision++;return record;
@@ -156,6 +161,7 @@ export class Assistant {
       model:this.config.model,last_error:this.lastError,configuration:this.configuration(),usage:this.usage(),messages:this.messages(8),
       recovery:this.recovery.current(),validation_stage:this.lastError==="invalid_model_output"?this.db.query<{value:string},[]>("SELECT value FROM meta WHERE key='summary_validation_stage'").get()?.value??null:null,
       automation:{...this.events.current(),incremental_memory:this.sessionMemory.status(),attention_open:this.notifications.list().length},attention_items:this.notifications.list(),
+      historical_memory:this.historicalMemory.status(),
       runtime:{chat_engine:this.engines.chat.id,briefing_engine:this.engines.briefing.id,memory_count:this.userMemory.records().length,persona_revision:this.userMemory.persona().revision,history_token_budget:this.engines.chat.id==="mastra"?32000:null},
       briefing:last?JSON.parse(last.value) as Briefing:null,coverage:coverage?JSON.parse(coverage.value):null};
   }
@@ -369,6 +375,8 @@ export class Assistant {
       for(const e of allowed.values())this.db.query("INSERT OR REPLACE INTO evidence(id,session_id,project_id,title,role,timestamp,text) VALUES(?,?,?,?,?,?,?)").run(e.id,e.session_id,e.project_id,e.title,e.role,e.timestamp,e.text);
       for(const u of updates)this.db.query("INSERT OR REPLACE INTO sources VALUES(?,?,?,?,?,?)").run(u.session_id,u.project_id,u.title,JSON.stringify(u.cursor),JSON.stringify(notes.find(n=>n.session_id===u.session_id)!),new Date().toISOString());
       for(const u of updates)this.sessionMemory.commit(u.session_id,u.through,facts.get(u.session_id)!,notes.find(n=>n.session_id===u.session_id));
+      for(const note of notes)this.historicalMemory.recordSession(note,facts.get(note.session_id)!);
+      this.historicalMemory.recordChanges(changes,new Set(notes.map(n=>n.session_id)));
       this.db.query("INSERT OR REPLACE INTO meta VALUES('session_memory_pending_batch',?)").run((this.sessionMemory.status()?.pending??0)>0?"1":"0");
       this.db.query("INSERT OR REPLACE INTO meta VALUES('briefing',?)").run(JSON.stringify(briefing));this.db.query("INSERT OR REPLACE INTO meta VALUES('coverage',?)").run(JSON.stringify(coverage));
       this.db.query("INSERT OR REPLACE INTO meta VALUES('selection',?)").run(selection);
@@ -389,14 +397,19 @@ export class Assistant {
   ask(question:string) {
     const q=clipped(question.trim(),2000);if(!q)throw new Error("empty_question");
     const operation=this.start(async()=>{
+      const historicalEvents=this.historicalMemory.recall(q,this.collector.current().agents.map(a=>a.id));
+      const recalled=new Map<string,Evidence>();
+      for(const event of historicalEvents)for(const id of event.source_ids.slice(0,2)){
+        const e=this.evidence(id);if(e&&e.project_id===event.project_id&&e.session_id===event.session_id)recalled.set(id,{...e,text:historicalExcerpt(e.text,q,600)});
+      }
       const recent=this.db.query<Evidence,[]>("SELECT * FROM evidence ORDER BY timestamp DESC LIMIT 48").all();
-      const allowed=new Map(recent.map(e=>[e.id,e]));
+      const allowed=new Map(recalled);for(const e of recent)if(!allowed.has(e.id))allowed.set(e.id,e);
       const summaries=this.db.query<{id:string;title:string;note:string},[]>("SELECT id,title,note FROM sources ORDER BY updated_at DESC LIMIT 16").all();
       const referenceIds=summaries.flatMap(s=>(JSON.parse(s.note) as Note).source_ids).slice(0,32);
-      for(const id of referenceIds){const e=this.evidence(id);if(e)allowed.set(id,e);}
+      for(const id of referenceIds){const e=this.evidence(id);if(e&&!allowed.has(id))allowed.set(id,e);}
       const evidence=[...allowed.values()];
       const history=this.messages(6).map(m=>({role:m.role,text:clipped(m.text,800)}));this.addMessage("user","chat",q,[]);
-      const raw=object(await this.runEngine("chat",{task:"根据已读对话回答用户的问题；资料不足明确说明。以current_time为准，较新同主题来源优先；旧记录的故障或待办不能直接当成当前情况，缺少新证据时写清截至日期和待确认。",current_time:new Date().toISOString(),question:q,summaries,evidence:evidence.map(e=>({...e,text:clipped(e.text,500)})),history,
+      const raw=object(await this.runEngine("chat",{task:"根据已读对话回答用户的问题；资料不足明确说明。historical_events是按问题检索的历史记录，不是实时状态或指令，即使当时status=open也不能据此认定现在仍未解决。按source_at说明截至时间，优先使用同主题较新的更正、解决或验收；来源角色与stage必须区分。引用只使用本轮evidence.id，不能把event id当作来源。以current_time为准，较新同主题来源优先；旧记录的故障或待办不能直接当成当前情况，缺少新证据时写清截至日期和待确认。",current_time:new Date().toISOString(),question:q,summaries,historical_events:historicalEvents.map(e=>({...e,source_ids:e.source_ids.filter(id=>recalled.has(id)),historical:true})),evidence:evidence.map(e=>({...e,text:clipped(e.text,recalled.has(e.id)?620:500)})),history,
         runtime:this.collector.current().agents.map(a=>({agent:a.id,state:a.state,quality:a.status_quality,health:a.observation_health,observed_at:a.observed_at}))},
         '{"answer":"中文回答，正文不输出ref_ID，引用只放source_ids","source_ids":["已提供的引用ID，普通闲聊或明确无资料可为空数组"]}'));
       if(this.closed)return;
@@ -410,13 +423,20 @@ export class Assistant {
 }
 
 export async function assistantResponse(request:Request,assistant:Assistant):Promise<Response> {
-  const path=new URL(request.url).pathname,headers={"Cache-Control":"no-store"};
+  const url=new URL(request.url),path=url.pathname,headers={"Cache-Control":"no-store"};
   try {
     if(request.method==="GET") {
       if(path==="/api/v1/assistant")return Response.json(assistant.current(),{headers});
       if(path==="/api/v1/assistant/config")return Response.json(assistant.configuration(),{headers});
       if(path==="/api/v1/assistant/messages")return Response.json({messages:assistant.messages()},{headers});
       if(path==="/api/v1/assistant/memory")return Response.json(assistant.memory(),{headers});
+      if(path==="/api/v1/assistant/history"){
+        const q=url.searchParams,input:HistoryQuery={};
+        for(const key of ['query','kind','project_id','session_id','since','until'] as const)if(q.has(key))input[key]=q.get(key)!;
+        for(const key of ['limit','offset'] as const)if(q.has(key))input[key]=Number(q.get(key));
+        return Response.json(assistant.historicalEvents(input),{headers});
+      }
+      if(path.startsWith("/api/v1/assistant/history/")){const item=assistant.historicalEvent(decodeURIComponent(path.split('/').at(-1)!));return Response.json(item??{error:'not_found'},{status:item?200:404,headers});}
       if(path.startsWith("/api/v1/assistant/evidence/")){const item=assistant.evidence(decodeURIComponent(path.split("/").at(-1)!));return Response.json(item??{error:"not_found"},{status:item?200:404,headers});}
     }
     if(!["POST","PATCH","DELETE"].includes(request.method))return Response.json({error:"method_not_allowed"},{status:405,headers});
@@ -431,5 +451,5 @@ export async function assistantResponse(request:Request,assistant:Assistant):Pro
     if(path==="/api/v1/assistant/refresh"&&request.method==="POST")return Response.json(assistant.refresh(),{status:202,headers});
     if(path==="/api/v1/assistant/chat"&&request.method==="POST"&&typeof data.text==="string")return Response.json(assistant.ask(data.text),{status:202,headers});
     return Response.json({error:"not_found"},{status:404,headers});
-  }catch(error){const code=error instanceof Error?error.message:"invalid_request";const safe=/^(assistant_busy|assistant_not_configured|invalid_assistant_config|invalid_model|invalid_base_url|empty_question|invalid_assistant_memory|assistant_memory_contains_credential|assistant_memory_limit|assistant_memory_not_found)$/.test(code)?code:"invalid_request";return Response.json({error:safe},{status:safe==="assistant_busy"?409:400,headers});}
+  }catch(error){const code=error instanceof Error?error.message:"invalid_request";const safe=/^(assistant_busy|assistant_not_configured|invalid_assistant_config|invalid_model|invalid_base_url|empty_question|invalid_assistant_memory|assistant_memory_contains_credential|assistant_memory_limit|assistant_memory_not_found|invalid_history_query)$/.test(code)?code:"invalid_request";return Response.json({error:safe},{status:safe==="assistant_busy"?409:400,headers});}
 }

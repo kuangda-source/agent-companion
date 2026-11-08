@@ -30,6 +30,16 @@ clang -std=c11 -D_POSIX_C_SOURCE=200809L -Iapps/device/main -Ipackages/client-co
 - `packages/dsh-superagent-core/`：固定来源的 MIT 事件处理核心；没有启用其自主编码执行器。
 - `assets/pets/`：128px 透明 PNG 七态动画、时间轴和脚底锚点。见资源清单/schema；不要叠加全身呼吸位移。
 
+## 可搜索历史事件
+
+`apps/gateway/src/assistant-history.ts` owns a local FTS5 observation index in `assistant.sqlite`. Accepted session facts, summary revisions and important changes feed it in the same transaction as the canonical memory receipt. It does not install provider hooks, read original transcripts independently, or make background model calls. Unchanged text/stage/status observations deduplicate; differing versions remain searchable. Sources are checked for session/project ownership, and Agent-only evidence cannot upgrade an observation to verified/accepted.
+
+Authenticated loopback-only read routes: `GET /api/v1/assistant/history?query=...&kind=...&project_id=...&session_id=...&since=...&until=...&limit=20&offset=0`, and `GET /api/v1/assistant/history/<event_id>`. Search returns compact observations; detail returns the preserved text and source IDs, with original public excerpts available from the existing evidence route. Query text is tokenized as data; raw SQL/FTS syntax is never executed. Han bigrams and code identifiers support local keyword retrieval without an embedding model. These management routes are not exposed to devices or relay clients.
+
+Chat retrieval runs in the application before either engine is invoked: up to 4 search hits plus newer same-topic observations, at most 6 in total, with at most 2 bounded source excerpts each. Historical evidence is placed first in the existing Mastra evidence budget and revalidated after selection. No shell/MCP tools are enabled for the answering model. Historical context stays transient, distinct from explicit user preferences and accepted assistant history. A future Letta engine can consume the same application-owned task context and source IDs without replacing the canonical store.
+
+`assistant-history.test.ts` covers Chinese/identifier search, old facts outside recent windows, resolution recall, deduplication, provenance, rollback, legacy backfill, local API isolation and actual Mastra SDK context assembly using synthetic fixtures only.
+
 ## 验证
 
 ```bash

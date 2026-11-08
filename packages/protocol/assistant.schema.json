@@ -5,6 +5,7 @@
   "properties":{
     "schema_version":{"const":1},"data_source":{"enum":["live","mock"]},"revision":{"type":"integer","minimum":0},
     "status":{"enum":["unconfigured","ready","updating","failed","offline"]},"model":{"type":"string","maxLength":120},
+    "historical_memory":{"type":"object","required":["events","search_engine","semantic_search"],"properties":{"events":{"type":"integer","minimum":0},"search_engine":{"const":"sqlite_fts5"},"semantic_search":{"const":false}}},
     "runtime":{"type":"object","required":["chat_engine","briefing_engine","memory_count","persona_revision","history_token_budget"],"properties":{
       "chat_engine":{"enum":["builtin","mastra","letta"]},"briefing_engine":{"enum":["builtin","mastra","letta"]},"memory_count":{"type":"integer","minimum":0,"maximum":64},"persona_revision":{"type":"integer","minimum":1},"history_token_budget":{"type":["integer","null"],"minimum":1}
     }},

@@ -68,7 +68,11 @@ struct RemoteConnectionStatus: Codable, Equatable {
         return url
     }
     private func fetch(_ path: String, patch: [String: Any]? = nil, authenticated: Bool = true, method: String = "PATCH") async throws -> Data {
-        var request = URLRequest(url: base.appendingPathComponent(path)); request.cachePolicy = .reloadIgnoringLocalCacheData
+        let parts = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        var components = URLComponents(url: base.appendingPathComponent(String(parts[0])), resolvingAgainstBaseURL: false)!
+        if parts.count == 2 { components.percentEncodedQuery = String(parts[1]) }
+        guard let url = components.url else { throw URLError(.badURL) }
+        var request = URLRequest(url: url); request.cachePolicy = .reloadIgnoringLocalCacheData
         if authenticated {
             let token = try String(contentsOf: runtime.appendingPathComponent("gateway.token"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
             request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")

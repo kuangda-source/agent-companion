@@ -18,6 +18,12 @@ struct AssistantAttention: Codable, Equatable, Identifiable { var id: String; va
 struct AssistantPersona: Codable { var id: String; var revision: Int; var instructions: String }
 struct AssistantSavedMemory: Codable, Identifiable { var id: String; var text: String; var updated_at: String }
 struct AssistantMemoryState: Codable { var revision: Int; var persona: AssistantPersona; var items: [AssistantSavedMemory] }
+struct AssistantHistoricalMemory: Codable, Equatable { var events: Int }
+struct AssistantHistoricalEvent: Codable, Equatable, Identifiable {
+    var id: String; var session_id: String; var project_id: String; var topic_key: String; var kind: String
+    var title: String; var text: String; var stage: String; var status: String?; var source_at: String?; var recorded_at: String; var source_ids: [String]
+}
+struct AssistantHistoryResults: Codable { var items: [AssistantHistoricalEvent]; var total: Int; var has_more: Bool }
 struct AssistantFeed: Codable, Equatable {
     var revision: Int; var status: String; var model: String; var last_error: String?
     var recovery: AssistantRecovery?
@@ -25,6 +31,7 @@ struct AssistantFeed: Codable, Equatable {
     var runtime: AssistantRuntime?
     var automation: AssistantAutomation?
     var attention_items: [AssistantAttention]?
+    var historical_memory: AssistantHistoricalMemory?
 }
 struct AssistantEvidence: Codable, Identifiable { var id: String; var session_id: String; var title: String; var role: String; var timestamp: String?; var text: String }
 
@@ -33,6 +40,7 @@ struct AssistantPanel: View {
     @State private var question = ""
     @State private var source: AssistantEvidence?
     @State private var showMemory = false
+    @State private var showHistoricalEvents = false
     private var feed: AssistantFeed? { model.assistantFeed }
     private var busy: Bool { model.assistantSending || feed?.status == "updating" }
     var body: some View {
@@ -41,6 +49,7 @@ struct AssistantPanel: View {
                 HStack {
                     Label(status, systemImage: busy ? "hourglass" : "sparkles").foregroundStyle(model.theme.accent)
                     Spacer()
+                    Button { showHistoricalEvents = true } label: { Label("历史事件", systemImage: "clock.arrow.circlepath") }.disabled(!model.online).accessibilityIdentifier("assistant-history-events")
                     Button("人格与记忆") { showMemory = true }.disabled(busy || !model.online).accessibilityIdentifier("assistant-memory")
                     Button("更新简报") { model.refreshAssistant() }.disabled(busy || (feed?.configuration.enabled != true || feed?.configuration.has_key != true)).accessibilityIdentifier("assistant-refresh")
                 }
@@ -83,7 +92,8 @@ struct AssistantPanel: View {
                     Button("发送", action: send).disabled(busy || question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (feed?.configuration.enabled != true || feed?.configuration.has_key != true)).accessibilityIdentifier("assistant-send")
                 }
                 if busy { ProgressView("正在整理或回答…") }
-                Text("可追问项目进展或日常交流；长期偏好在“人格与记忆”中保存。语音稍后接入。").font(.caption).foregroundStyle(model.theme.muted)
+                Text("可追问以前的实验结果、决策和失败原因，助手会查找相关历史来源；长期偏好在“人格与记忆”中保存。").font(.caption).foregroundStyle(model.theme.muted)
+                if let historical = feed?.historical_memory { Text("已保存 \(historical.events) 条历史事件，可在“历史事件”中搜索。").font(.caption).foregroundStyle(model.theme.muted) }
             }
             if model.assistantMessages.isEmpty {
                 block("还没有助手消息") { Text("点击“更新简报”读取最近对话；结果也会同步到桌面屏幕的底部消息区。").foregroundStyle(model.theme.muted) }
@@ -114,6 +124,7 @@ struct AssistantPanel: View {
             }.padding(24).frame(width: 700, height: 470)
         }
         .sheet(isPresented: $showMemory) { AssistantMemoryPanel().environmentObject(model) }
+        .sheet(isPresented: $showHistoricalEvents) { AssistantHistoryPanel().environmentObject(model) }
     }
     private var status: String {
         switch feed?.status { case "ready": return "助手已连接"; case "updating": return "正在更新"; case "failed": return "本轮未完成，保留已有消息"; case "unconfigured": return "助手尚未启用"; default: return "连接中" }
@@ -143,6 +154,118 @@ struct AssistantPanel: View {
         case "provider_network_error": return "暂时无法连接模型服务，请检查网络或 API 地址。"
         default: return "本轮请求未完成，已有简报仍可查看。"
         }
+    }
+}
+
+struct AssistantHistoryPanel: View {
+    @EnvironmentObject var model: CompanionModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @State private var kind = ""
+    @State private var items: [AssistantHistoricalEvent] = []
+    @State private var total = 0
+    @State private var hasMore = false
+    @State private var loading = false
+    @State private var searched = false
+    @State private var requestID = 0
+    @State private var appliedQuery = ""
+    @State private var appliedKind = ""
+    @State private var selectedID: String?
+    @State private var detail: AssistantHistoricalEvent?
+    @State private var source: AssistantEvidence?
+    @State private var error: String?
+    private let kinds = [("", "全部"), ("result", "实验与结果"), ("decision", "决策"), ("failure", "失败与阻塞"), ("resolution", "解决记录"), ("milestone", "里程碑"), ("summary", "历史摘要")]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack { Text("历史事件").font(.title2.bold()); Spacer(); Button("完成") { dismiss() } }
+            Text("查找过去的实验结果、决策和失败原因。搜索不消耗 API Token；记录来自已整理的公开对话，未覆盖全部历史。").font(.caption).foregroundStyle(model.theme.muted)
+            HStack {
+                TextField("关键词，例如实验编号、显存不足、方案选择", text: $query).textFieldStyle(.roundedBorder).onSubmit { Task { await search() } }.accessibilityIdentifier("assistant-events-query")
+                Picker("类型", selection: $kind) { ForEach(kinds, id: \.0) { value in Text(value.1).tag(value.0) } }.frame(width: 175).accessibilityIdentifier("assistant-events-kind")
+                Button("搜索") { Task { await search() } }.disabled(loading).accessibilityIdentifier("assistant-events-search")
+            }
+            HStack {
+                Text("\(total) 条匹配记录").font(.caption).foregroundStyle(model.theme.muted)
+                if loading { ProgressView().controlSize(.small) }
+                if let error { Text(error).font(.caption).foregroundStyle(model.theme.accent) }
+            }
+            HSplitView {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if searched && items.isEmpty { Text("没有找到相关记录，可换关键词或事件类型。").foregroundStyle(model.theme.muted).padding(12) }
+                        ForEach(items) { item in
+                            Button { select(item) } label: {
+                                VStack(alignment: .leading, spacing: 7) {
+                                    HStack { Text(kindName(item.kind)).font(.caption.bold()); Spacer(); Text(time(item.source_at)).font(.caption2) }
+                                    Text(item.title).font(.caption).foregroundStyle(model.theme.muted).lineLimit(1)
+                                    Text(item.text).lineLimit(4).frame(maxWidth: .infinity, alignment: .leading)
+                                }.padding(12).background(CompanionSurface(theme: model.theme, selected: selectedID == item.id))
+                            }.buttonStyle(.plain).accessibilityIdentifier("assistant-event-\(item.id)")
+                        }
+                        if hasMore { Button("加载更多") { Task { await search(append: true) } }.disabled(loading) }
+                    }.padding(.trailing, 8)
+                }.frame(minWidth: 275, idealWidth: 320)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        if let item = detail {
+                            Text(item.title).font(.headline)
+                            Text("\(kindName(item.kind)) · \(time(item.source_at))").font(.caption).foregroundStyle(model.theme.muted)
+                            Text(stageName(item.stage) + (item.status == "open" ? " · 当时待处理" : item.status == "resolved" ? " · 当时已解决" : "")).font(.caption)
+                            Text(item.text).textSelection(.enabled).lineSpacing(5)
+                            Text("这是历史记录，当前状态应以较新的对话和验收为准。").font(.caption).foregroundStyle(model.theme.muted)
+                            ForEach(Array(item.source_ids.enumerated()), id: \.element) { index, id in
+                                Button("查看来源 \(index + 1)") { Task { source = await model.assistantEvidence(id) } }
+                            }
+                        } else { Text(selectedID == nil ? "选择一条记录查看详情和来源。" : "正在读取详情…").foregroundStyle(model.theme.muted) }
+                    }.padding(.leading, 14).frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(minWidth: 300)
+            }
+        }.padding(24).frame(width: 860, height: 650)
+        .task { await search() }
+        .onChange(of: kind) { _ in Task { await search() } }
+        .sheet(item: $source) { item in
+            VStack(alignment: .leading, spacing: 16) {
+                HStack { Text(item.title).font(.headline); Spacer(); Button("关闭") { source = nil } }
+                Text("\(item.role == "user" ? "用户" : "Agent")公开正文节选 · \(time(item.timestamp))").font(.caption)
+                ScrollView { Text(item.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+            }.padding(24).frame(width: 700, height: 470)
+        }
+    }
+    private func search(append: Bool = false) async {
+        requestID += 1; let active = requestID
+        let extending = append && query == appliedQuery && kind == appliedKind
+        let searchingQuery = query, searchingKind = kind
+        loading = true; error = nil
+        defer { if requestID == active { loading = false } }
+        var components = URLComponents()
+        components.queryItems = [URLQueryItem(name: "query", value: query), URLQueryItem(name: "limit", value: "20"), URLQueryItem(name: "offset", value: extending ? String(items.count) : "0")]
+        if !kind.isEmpty { components.queryItems?.append(URLQueryItem(name: "kind", value: kind)) }
+        do {
+            let data = try await model.configurationRequest("api/v1/assistant/history?" + (components.percentEncodedQuery ?? ""), method: "GET")
+            let result = try JSONDecoder().decode(AssistantHistoryResults.self, from: data)
+            guard requestID == active else { return }
+            items = extending ? items + result.items : result.items; total = result.total; hasMore = result.has_more; searched = true
+            appliedQuery = searchingQuery; appliedKind = searchingKind
+            if !extending { selectedID = nil; detail = nil }
+        } catch { if requestID == active { self.error = "查询失败，请确认本机服务已连接，关键词不超过 300 字。" } }
+    }
+    private func select(_ item: AssistantHistoricalEvent) {
+        selectedID = item.id; detail = nil; error = nil
+        Task {
+            do {
+                let data = try await model.configurationRequest("api/v1/assistant/history/" + item.id, method: "GET")
+                let event = try JSONDecoder().decode(AssistantHistoricalEvent.self, from: data)
+                if selectedID == item.id { detail = event }
+            } catch { if selectedID == item.id { self.error = "读取事件详情失败。" } }
+        }
+    }
+    private func kindName(_ value: String) -> String { kinds.first(where: { $0.0 == value })?.1 ?? value }
+    private func stageName(_ value: String) -> String { ["planned": "计划", "reported": "来源报告", "verified": "来源标记已验证", "accepted": "来源标记已验收"][value] ?? value }
+    private func time(_ value: String?) -> String {
+        guard let value else { return "来源时间不明" }
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = formatter.date(from: value) else { return value }
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 }
 
