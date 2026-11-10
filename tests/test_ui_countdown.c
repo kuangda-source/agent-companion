@@ -54,13 +54,17 @@ int main(void){
     snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1029);assert(contains(lv_screen_active(),"Recent public message"));assert(contains(lv_screen_active(),"状态未知"));assert(!contains(lv_screen_active(),"IN / OUT"));assert(!contains(lv_screen_active(),"CACHE"));assert(!contains(lv_screen_active(),"CTX"));assert(!contains(lv_screen_active(),"TIME"));assert(contains(lv_screen_active(),"7d 剩余 90%"));assert(!contains(lv_screen_active(),"上次 7d"));
     snapshot.agent_order[0]=AC_AGENT_CODEX;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,1030);assert(contains(lv_screen_active(),"IN / OUT"));assert(contains(lv_screen_active(),"TIME"));assert(contains(lv_screen_active(),"还剩"));assert(!contains(lv_screen_active(),"Recent public message"));
     snapshot.generated_epoch=1800000000;snapshot.agents[0].quota_reset_epoch=1800000091;
-    snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,2000);assert(contains(lv_screen_active(),"7d余36%"));assert(contains(lv_screen_active(),"1m31s重置"));
-    ac_bootstrap_screen_tick(3000);assert(contains(lv_screen_active(),"1m30s重置"));
+    snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,2000);assert(contains(lv_screen_active(),"7d余36%"));assert(contains(lv_screen_active(),"1m重置"));
+    ac_bootstrap_screen_tick(3000);assert(contains(lv_screen_active(),"1m重置"));
     for(int theme=0;theme<AC_THEME_COUNT;theme++){
         ac_theme_apply(lv_screen_active(),(ac_theme_id_t)theme);snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,4000+theme);
-        lv_obj_update_layout(lv_screen_active());lv_obj_t *left=label_with(lv_screen_active(),"7d余36%"),*right=label_with(lv_screen_active(),"1m31s重置");assert(left&&right);
+        lv_obj_update_layout(lv_screen_active());lv_obj_t *left=label_with(lv_screen_active(),"7d余36%"),*right=label_with(lv_screen_active(),"1m重置");assert(left&&right);
         lv_area_t a,b;lv_obj_get_coords(left,&a);lv_obj_get_coords(right,&b);assert(a.x2<b.x1&&a.y1==b.y1);
         label_fits(left);label_fits(right);
+        const int64_t remaining[]={6*86400+23*3600,23*3600+59*60,59*60,59};
+        const char *labels[]={"6d23h重置","23h59m重置","59m重置","<1m重置"};
+        for(size_t n=0;n<4;++n){snapshot.agents[0].quota_reset_epoch=snapshot.generated_epoch+remaining[n];snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,4000+theme);lv_obj_update_layout(lv_screen_active());right=label_with(lv_screen_active(),labels[n]);if(!right)fprintf(stderr,"Quota label cropped: theme=%d expected=%s\n",theme,labels[n]);assert(right);label_fits(right);}
+        snapshot.agents[0].quota_reset_epoch=snapshot.generated_epoch+91;
         snapshot.agents[0].quota.value=0;snapshot.agents[0].quota_stale=true;snapshot.seq++;ac_bootstrap_screen_apply(&snapshot,4000+theme);
         lv_obj_update_layout(lv_screen_active());left=label_with(lv_screen_active(),"上次7d100%");assert(left);label_fits(left);assert(contains(lv_screen_active(),"待更新"));
         snapshot.agents[0].quota.value=.64;snapshot.agents[0].quota_stale=false;

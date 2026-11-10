@@ -197,7 +197,8 @@ static void render_quota(int i)
     uint32_t quota_color=quota_colors[quota.band];
     bool reset_visible=!money&&quota.available&&a->quota_reset_epoch>0&&current.generated_epoch>0;
     hide(card_quota_reset[i],!reset_visible);
-    lv_obj_set_style_text_font(card_quota[i],ac_theme_font(reset_visible?13:16),0);ellipsis(card_quota[i],reset_visible?76:146);
+    lv_obj_set_style_text_font(card_quota[i],ac_theme_font(reset_visible?13:16),0);ellipsis(card_quota[i],reset_visible?70:146);
+    lv_obj_set_style_text_letter_space(card_quota[i],reset_visible?-1:0,0);
     if(money){
         const char *currency=strcmp(balance->currency,"CNY")==0?"¥":"$";
         lv_label_set_text_fmt(card_quota[i],"%s %s%.2f",money_fresh?"余额":"上次",currency,balance->total);
@@ -484,7 +485,7 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
         lv_obj_add_event_cb(card_status[i],status_bubble,LV_EVENT_DRAW_MAIN_BEGIN,NULL);lv_obj_add_event_cb(card_status[i],status_bubble,LV_EVENT_REFR_EXT_DRAW_SIZE,NULL);lv_obj_refresh_ext_draw_size(card_status[i]);
         card_counts[i]=text(cards[i],128,81,"会话 —",0xb8faff); ellipsis(card_counts[i],146);
         card_quota[i]=text(cards[i],128,108,"额度 —",0x70d6e2); ellipsis(card_quota[i],146);
-        card_quota_reset[i]=text(cards[i],208,108,"",0x70d6e2);ellipsis(card_quota_reset[i],66);lv_obj_set_style_text_align(card_quota_reset[i],LV_TEXT_ALIGN_RIGHT,0);hide(card_quota_reset[i],true);
+        card_quota_reset[i]=text(cards[i],202,108,"",0x70d6e2);ellipsis(card_quota_reset[i],72);lv_obj_set_style_text_letter_space(card_quota_reset[i],-1,0);lv_obj_set_style_text_align(card_quota_reset[i],LV_TEXT_ALIGN_RIGHT,0);hide(card_quota_reset[i],true);
         quota_tracks[i]=box(cards[i],282,17,6,108,0x006877); lv_obj_set_style_border_width(quota_tracks[i],0,0); lv_obj_set_style_radius(quota_tracks[i],3,0); lv_obj_set_style_clip_corner(quota_tracks[i],true,0);
         quota_fills[i]=box(quota_tracks[i],0,0,6,108,0x006877); lv_obj_set_style_border_width(quota_fills[i],0,0); lv_obj_set_style_radius(quota_fills[i],3,0);
     }

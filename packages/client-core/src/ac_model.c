@@ -76,8 +76,8 @@ void ac_quota_reset_countdown(char *out,size_t capacity,int64_t reset_epoch,int6
     if(seconds>=100*86400)snprintf(out,capacity,"%lldd",seconds/86400);
     else if(seconds>=86400)snprintf(out,capacity,"%lldd%02lldh",seconds/86400,seconds%86400/3600);
     else if(seconds>=3600)snprintf(out,capacity,"%lldh%02lldm",seconds/3600,seconds%3600/60);
-    else if(seconds>=60)snprintf(out,capacity,"%lldm%02llds",seconds/60,seconds%60);
-    else snprintf(out,capacity,"%llds",seconds);
+    else if(seconds>=60)snprintf(out,capacity,"%lldm",seconds/60);
+    else snprintf(out,capacity,"<1m");
 }
 
 ac_pet_expression_t ac_expression_for(ac_state_t state, ac_data_quality_t quality,

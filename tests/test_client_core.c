@@ -136,8 +136,8 @@ int main(void)
     char reset[48];int64_t now=1800000000;
     ac_quota_reset_countdown(reset,sizeof(reset),now+2*86400+4*3600,now,true);assert(!strcmp(reset,"2d04h"));
     ac_quota_reset_countdown(reset,sizeof(reset),now+3660,now,true);assert(!strcmp(reset,"1h01m"));
-    ac_quota_reset_countdown(reset,sizeof(reset),now+90,now,true);assert(!strcmp(reset,"1m30s"));
-    ac_quota_reset_countdown(reset,sizeof(reset),now+59,now,true);assert(!strcmp(reset,"59s"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now+90,now,true);assert(!strcmp(reset,"1m"));
+    ac_quota_reset_countdown(reset,sizeof(reset),now+59,now,true);assert(!strcmp(reset,"<1m"));
     ac_quota_reset_countdown(reset,sizeof(reset),now,now,true);assert(!strcmp(reset,"待确认"));
     ac_quota_reset_countdown(reset,sizeof(reset),now-10,now,true);assert(!strcmp(reset,"待确认"));
     ac_quota_reset_countdown(reset,sizeof(reset),now+90,now,false);assert(!strcmp(reset,"待更新"));

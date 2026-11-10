@@ -34,7 +34,7 @@ ac_metric_t ac_usage_total(const ac_usage_stats_t *stats, int agent, unsigned da
 typedef enum { AC_QUOTA_UNKNOWN, AC_QUOTA_GREEN, AC_QUOTA_YELLOW, AC_QUOTA_RED } ac_quota_band_t;
 typedef struct { bool available; double remaining_ratio; ac_quota_band_t band; } ac_quota_view_t;
 ac_quota_view_t ac_quota_view(ac_metric_t used, ac_observation_health_t health);
-/* Empty when no reset deadline is known; reaching zero does not imply a reset. */
+/* Minute precision; empty without a deadline. Reaching zero does not imply a reset. */
 void ac_quota_reset_countdown(char *out,size_t capacity,int64_t reset_epoch,int64_t now,bool fresh);
 typedef struct {
     char id[96];
