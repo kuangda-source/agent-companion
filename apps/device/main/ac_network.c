@@ -50,14 +50,16 @@ static atomic_bool relay_up;
 static portMUX_TYPE link_lock=portMUX_INITIALIZER_UNLOCKED;
 static ac_link_watch_t watch;
 static uint64_t progress_ms,probe_id,pong_id,packets,reconnects;
+static uint64_t last_view_applied;
 static int probe_result;
 static bool reconnect_requested,mac_present;
 static uint64_t now_ms(void){return esp_timer_get_time()/1000;}
 static void progress(void){portENTER_CRITICAL(&link_lock);progress_ms=now_ms();portEXIT_CRITICAL(&link_lock);}
 static const char *label="Wi-Fi 待配网";
 static void status(const char *state,const char *screen,int code){portENTER_CRITICAL(&link_lock);label=screen;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"%s",screen);portEXIT_CRITICAL(&link_lock);printf("\nAC_NET {\"state\":\"%s\",\"code\":%d}\n",state,code);fflush(stdout);}
-void ac_network_wifi_status(ac_wifi_status_t *out){if(!out)return;portENTER_CRITICAL(&link_lock);*out=wifi_ui;out->mac_connected=mac_present&&watch.connected&&now_ms()-watch.last_response_ms<20000;portEXIT_CRITICAL(&link_lock);}
-bool ac_network_scan(void){if(!bits)return false;atomic_store(&scan_requested,true);portENTER_CRITICAL(&link_lock);wifi_ui.scanning=true;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"正在扫描附近网络…");portEXIT_CRITICAL(&link_lock);return true;}
+void ac_network_wifi_status(ac_wifi_status_t *out){if(!out)return;portENTER_CRITICAL(&link_lock);*out=wifi_ui;out->available=bits!=NULL;out->link_connected=relay_up&&watch.connected&&now_ms()-watch.last_response_ms<20000;out->lan_active=active_lan;out->mac_connected=out->link_connected&&mac_present&&now_ms()-watch.last_response_ms<20000;out->data_fresh=out->mac_connected&&last_view_applied&&now_ms()-last_view_applied<8000;portEXIT_CRITICAL(&link_lock);}
+void ac_network_view_applied(void){portENTER_CRITICAL(&link_lock);last_view_applied=now_ms();portEXIT_CRITICAL(&link_lock);}
+bool ac_network_scan(void){if(!bits)return false;atomic_store(&scan_requested,true);portENTER_CRITICAL(&link_lock);wifi_ui.scanning=true;wifi_ui.scan_failed=false;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"正在扫描附近网络…");portEXIT_CRITICAL(&link_lock);return true;}
 bool ac_network_join_local(const ac_wifi_join_t *request){
     if(!joins||!ac_wifi_join_valid(request)||xQueueSend(joins,request,0)!=pdTRUE)return false;
     portENTER_CRITICAL(&link_lock);wifi_ui.connecting=true;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"正在提交 Wi-Fi 配置…");portEXIT_CRITICAL(&link_lock);return true;
@@ -68,10 +70,15 @@ const char *ac_network_label(void){
 }
 static void wifi_event(void *arg,esp_event_base_t base,int32_t id,void *data){
     (void)arg;
-    if(base==IP_EVENT&&id==IP_EVENT_STA_GOT_IP){xEventGroupSetBits(bits,NET_IP);portENTER_CRITICAL(&link_lock);wifi_ui.connected=true;wifi_ui.connecting=false;portEXIT_CRITICAL(&link_lock);status("wifi_connected","Wi-Fi 已连接",0);}
+    if(base==IP_EVENT&&id==IP_EVENT_STA_GOT_IP){const ip_event_got_ip_t *ip=data;xEventGroupSetBits(bits,NET_IP);portENTER_CRITICAL(&link_lock);wifi_ui.connected=true;wifi_ui.connecting=false;wifi_ui.wifi_note[0]=0;if(ip)snprintf(wifi_ui.ip,sizeof(wifi_ui.ip),IPSTR,IP2STR(&ip->ip_info.ip));portEXIT_CRITICAL(&link_lock);status("wifi_connected","Wi-Fi 已连接",0);}
     else if(base==WIFI_EVENT&&id==WIFI_EVENT_STA_START)xEventGroupSetBits(bits,NET_WIFI_STARTED);
     else if(base==WIFI_EVENT&&id==WIFI_EVENT_SCAN_DONE)xEventGroupSetBits(bits,NET_SCAN_DONE);
-    else if(base==WIFI_EVENT&&id==WIFI_EVENT_STA_DISCONNECTED){xEventGroupClearBits(bits,NET_IP);relay_up=false;portENTER_CRITICAL(&link_lock);ac_link_watch_start(&watch,now_ms());reconnect_requested=true;wifi_ui.connected=false;wifi_ui.connecting=false;bool scanning=wifi_ui.scanning;portEXIT_CRITICAL(&link_lock);const wifi_event_sta_disconnected_t *event=data;if(!scanning)status("wifi_disconnected",event&&event->reason==WIFI_REASON_AUTH_FAIL?"密码验证失败，请重新输入":event&&event->reason==WIFI_REASON_NO_AP_FOUND?"未找到已保存网络，请选择新的 Wi-Fi":"Wi-Fi 连接中断，正在重试",event?event->reason:0);}
+    else if(base==WIFI_EVENT&&id==WIFI_EVENT_STA_DISCONNECTED){
+        const wifi_event_sta_disconnected_t *event=data;
+        const char *note=event&&event->reason==WIFI_REASON_AUTH_FAIL?"密码验证失败，请重新输入":event&&event->reason==WIFI_REASON_NO_AP_FOUND?"未找到已保存网络，请选择新的 Wi-Fi":"Wi-Fi 连接中断，正在重试";
+        xEventGroupClearBits(bits,NET_IP);relay_up=false;portENTER_CRITICAL(&link_lock);ac_link_watch_start(&watch,now_ms());reconnect_requested=true;wifi_ui.connected=false;wifi_ui.connecting=false;wifi_ui.ip[0]=0;last_view_applied=0;snprintf(wifi_ui.wifi_note,sizeof(wifi_ui.wifi_note),"%s",note);bool scanning=wifi_ui.scanning;portEXIT_CRITICAL(&link_lock);
+        if(!scanning)status("wifi_disconnected",note,event?event->reason:0);
+    }
 }
 static void wifi_saved(const net_config_t *config){portENTER_CRITICAL(&link_lock);snprintf(wifi_ui.ssid,sizeof(wifi_ui.ssid),"%s",config->ssid);wifi_ui.has_saved_password=config->password[0]!=0;wifi_ui.relay_configured=config->url[0]!=0;wifi_ui.lan_configured=config->lan_url[0]!=0;portEXIT_CRITICAL(&link_lock);}
 static int stronger(const void *left,const void *right){return ((const wifi_ap_record_t *)right)->rssi-((const wifi_ap_record_t *)left)->rssi;}
@@ -85,15 +92,15 @@ static void scan_results(void){
         ac_wifi_network_t *row=&rows[used++];memcpy(row->ssid,records[i].ssid,32);row->ssid[32]=0;row->rssi=records[i].rssi;row->secured=records[i].authmode!=WIFI_AUTH_OPEN;
         row->supported=records[i].authmode==WIFI_AUTH_OPEN||records[i].authmode==WIFI_AUTH_WPA2_PSK||records[i].authmode==WIFI_AUTH_WPA_WPA2_PSK||records[i].authmode==WIFI_AUTH_WPA3_PSK||records[i].authmode==WIFI_AUTH_WPA2_WPA3_PSK;
     }}free(records);
-    portENTER_CRITICAL(&link_lock);memcpy(wifi_ui.networks,rows,sizeof(rows));wifi_ui.count=used;wifi_ui.revision++;wifi_ui.scanning=false;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"%s",error!=ESP_OK?"扫描失败，请重试":used?"请选择网络并输入密码":"未发现网络，可手动输入名称");portEXIT_CRITICAL(&link_lock);scan_started=0;
+    portENTER_CRITICAL(&link_lock);memcpy(wifi_ui.networks,rows,sizeof(rows));wifi_ui.count=used;wifi_ui.revision++;wifi_ui.scanning=false;wifi_ui.scan_failed=error!=ESP_OK;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"%s",error!=ESP_OK?"扫描失败，请重试":used?"请选择网络并输入密码":"未发现网络，可手动输入名称");portEXIT_CRITICAL(&link_lock);scan_started=0;
     printf("\nAC_WIFI_SCAN {\"count\":%u,\"ok\":%s}\n",(unsigned)used,error==ESP_OK?"true":"false");fflush(stdout);
 }
 static char *rx;static size_t used,expected;static int64_t rx_started;
 static void websocket(void *arg,esp_event_base_t base,int32_t id,void *event){
     (void)arg;(void)base;esp_websocket_event_data_t *e=event;
-    if(id==WEBSOCKET_EVENT_CONNECTED){relay_up=true;portENTER_CRITICAL(&link_lock);ac_link_watch_open(&watch,now_ms());portEXIT_CRITICAL(&link_lock);status(active_lan?"lan_connected":"relay_connected",active_lan?"局域网已连接":"中转已连接",0);used=expected=0;}
-    else if(id==WEBSOCKET_EVENT_DISCONNECTED||id==WEBSOCKET_EVENT_CLOSED){relay_up=false;used=expected=0;portENTER_CRITICAL(&link_lock);ac_link_watch_start(&watch,now_ms());reconnect_requested=true;portEXIT_CRITICAL(&link_lock);status(active_lan?"lan_disconnected":"relay_disconnected",active_lan?"局域网重连中":"中转重连中",e?e->close_status_code:0);}
-    else if(id==WEBSOCKET_EVENT_ERROR){relay_up=false;portENTER_CRITICAL(&link_lock);reconnect_requested=true;portEXIT_CRITICAL(&link_lock);status(active_lan?"lan_error":"relay_error",active_lan?"局域网连接失败":"中转连接失败",e?(e->error_handle.esp_ws_handshake_status_code?e->error_handle.esp_ws_handshake_status_code:e->error_handle.esp_tls_last_esp_err):0);}
+    if(id==WEBSOCKET_EVENT_CONNECTED){relay_up=true;portENTER_CRITICAL(&link_lock);wifi_ui.link_error_code=0;ac_link_watch_open(&watch,now_ms());portEXIT_CRITICAL(&link_lock);status(active_lan?"lan_connected":"relay_connected",active_lan?"局域网已连接":"中转已连接",0);used=expected=0;}
+    else if(id==WEBSOCKET_EVENT_DISCONNECTED||id==WEBSOCKET_EVENT_CLOSED){relay_up=false;used=expected=0;portENTER_CRITICAL(&link_lock);last_view_applied=0;ac_link_watch_start(&watch,now_ms());reconnect_requested=true;portEXIT_CRITICAL(&link_lock);status(active_lan?"lan_disconnected":"relay_disconnected",active_lan?"局域网重连中":"中转重连中",e?e->close_status_code:0);}
+    else if(id==WEBSOCKET_EVENT_ERROR){relay_up=false;int code=e?(e->error_handle.esp_ws_handshake_status_code?e->error_handle.esp_ws_handshake_status_code:e->error_handle.esp_tls_last_esp_err):0;portENTER_CRITICAL(&link_lock);reconnect_requested=true;wifi_ui.link_error_code=code;portEXIT_CRITICAL(&link_lock);status(active_lan?"lan_error":"relay_error",code==409?"等待旧连接释放，正在重试":active_lan?"局域网连接失败":"中转连接失败",code);}
     else if(id==WEBSOCKET_EVENT_DATA&&e&&(e->op_code==1||e->op_code==0)){
         /* Server sends complete JSON messages; transport may deliver many buffer-sized events. */
         if(e->payload_offset==0&&e->op_code==1){used=0;expected=e->payload_len;rx_started=esp_timer_get_time();}
@@ -178,7 +185,7 @@ static void run(void *unused){
         }
         if(time(NULL)<1700000000&&c.clock>1700000000){struct timeval tv={.tv_sec=c.clock};settimeofday(&tv,NULL);}
         if(!initialized&&(have||atomic_load(&scan_requested))){
-            status("wifi_initializing","正在连接 Wi-Fi",0);
+            portENTER_CRITICAL(&link_lock);wifi_ui.connecting=have&&c.ssid[0];portEXIT_CRITICAL(&link_lock);status("wifi_initializing","正在连接 Wi-Fi",0);
             err=esp_netif_init();if(err!=ESP_OK&&err!=ESP_ERR_INVALID_STATE)goto init_failed;
             err=esp_event_loop_create_default();if(err!=ESP_OK&&err!=ESP_ERR_INVALID_STATE)goto init_failed;
             if(!esp_netif_create_default_wifi_sta()){err=ESP_FAIL;goto init_failed;}
@@ -193,20 +200,24 @@ static void run(void *unused){
             if(!(xEventGroupGetBits(bits)&NET_IP)){esp_wifi_disconnect();vTaskDelay(pdMS_TO_TICKS(150));}
             xEventGroupClearBits(bits,NET_SCAN_DONE);wifi_scan_config_t scan={.show_hidden=false,.scan_type=WIFI_SCAN_TYPE_ACTIVE};
             esp_err_t result=esp_wifi_scan_start(&scan,false);scan_started=now_ms();retry=esp_timer_get_time()+20000000;
-            if(result!=ESP_OK){scan_started=0;portENTER_CRITICAL(&link_lock);wifi_ui.scanning=false;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"暂时无法扫描，请重试");portEXIT_CRITICAL(&link_lock);}
+            if(result!=ESP_OK){scan_started=0;portENTER_CRITICAL(&link_lock);wifi_ui.scanning=false;wifi_ui.scan_failed=true;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"暂时无法扫描，请重试");portEXIT_CRITICAL(&link_lock);}
         }
         if(scan_started&&(xEventGroupGetBits(bits)&NET_SCAN_DONE)){xEventGroupClearBits(bits,NET_SCAN_DONE);scan_results();retry=esp_timer_get_time()+1000000;}
-        if(scan_started&&now_ms()-scan_started>15000){esp_wifi_scan_stop();scan_started=0;portENTER_CRITICAL(&link_lock);wifi_ui.scanning=false;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"扫描超时，请重试");portEXIT_CRITICAL(&link_lock);}
-        if(!have||scan_started)continue;
+        if(scan_started&&now_ms()-scan_started>15000){esp_wifi_scan_stop();scan_started=0;portENTER_CRITICAL(&link_lock);wifi_ui.scanning=false;wifi_ui.scan_failed=true;snprintf(wifi_ui.message,sizeof(wifi_ui.message),"扫描超时，请重试");portEXIT_CRITICAL(&link_lock);}
+        /* Scanning is asynchronous. Keep the established socket's heartbeat,
+         * outgoing ACKs and watchdog running throughout an online scan. */
+        if(!have)continue;
         if(!(xEventGroupGetBits(bits)&NET_IP)){
             choose_transport=true;
-            if((xEventGroupGetBits(bits)&NET_WIFI_STARTED)&&esp_timer_get_time()>retry){esp_wifi_connect();retry=esp_timer_get_time()+10000000;}
+            if(!scan_started&&(xEventGroupGetBits(bits)&NET_WIFI_STARTED)&&esp_timer_get_time()>retry){esp_wifi_connect();retry=esp_timer_get_time()+10000000;}
             continue;
         }
         if(!sntp){esp_sntp_config_t cfg=ESP_NETIF_SNTP_DEFAULT_CONFIG("ntp.aliyun.com");if(esp_netif_sntp_init(&cfg)==ESP_OK)sntp=true;}
         if(client){
-            portENTER_CRITICAL(&link_lock);ac_link_action_t action=ac_link_watch_tick(&watch,now_ms());bool requested=reconnect_requested;portEXIT_CRITICAL(&link_lock);
-            bool upgrade=false;if(!active_lan&&c.lan_url[0]&&now_ms()>=lan_probe_after){lan_probe_after=now_ms()+30000;upgrade=reachable(c.lan_url);}
+            portENTER_CRITICAL(&link_lock);ac_link_action_t action=ac_link_watch_tick(&watch,now_ms());bool requested=reconnect_requested,allow_upgrade=ac_link_watch_allow_upgrade(&watch,now_ms(),mac_present);portEXIT_CRITICAL(&link_lock);
+            /* Old DHCP addresses can accept TCP while TLS/authentication fails.
+             * Keep a working relay; probe LAN when it no longer reaches Mac. */
+            bool upgrade=false;if(!active_lan&&allow_upgrade&&c.lan_url[0]&&now_ms()>=lan_probe_after){lan_probe_after=now_ms()+30000;upgrade=reachable(c.lan_url);}
             if(requested||action==AC_LINK_RECONNECT||upgrade){
                 relay_up=false;status(active_lan?"lan_reconnecting":"relay_reconnecting",active_lan?"局域网重连中":"中转重连中",action==AC_LINK_RECONNECT?408:0);
                 esp_websocket_client_stop(client);esp_websocket_client_destroy(client);client=NULL;xQueueReset(outgoing);
@@ -228,8 +239,8 @@ static void run(void *unused){
         }
         char message[384];if(client&&relay_up&&xQueueReceive(outgoing,message,0)==pdTRUE)esp_websocket_client_send_text(client,message,strlen(message),pdMS_TO_TICKS(1000));
         if(now_ms()-report_at>=10000){
-            report_at=now_ms();portENTER_CRITICAL(&link_lock);uint64_t age=now_ms()-watch.last_response_ms,count=packets,retries=reconnects,probe=probe_id,pong=pong_id;int result=probe_result;bool live=watch.connected&&age<20000,mac=mac_present;portEXIT_CRITICAL(&link_lock);
-            printf("\nAC_LINK {\"relay_connected\":%s,\"lan_connected\":%s,\"transport\":\"%s\",\"mac_connected\":%s,\"response_age_ms\":%llu,\"packets\":%llu,\"reconnects\":%llu,\"probe\":%llu,\"pong\":%llu,\"probe_result\":%d}\n",live&&!active_lan?"true":"false",live&&active_lan?"true":"false",active_lan?"wifi":"relay",mac?"true":"false",(unsigned long long)age,(unsigned long long)count,(unsigned long long)retries,(unsigned long long)probe,(unsigned long long)pong,result);
+            report_at=now_ms();portENTER_CRITICAL(&link_lock);uint64_t age=now_ms()-watch.last_response_ms,count=packets,retries=reconnects,probe=probe_id,pong=pong_id;int result=probe_result;bool live=watch.connected&&age<20000,mac=mac_present,wifi_connected=wifi_ui.connected,scanning=wifi_ui.scanning;portEXIT_CRITICAL(&link_lock);
+            printf("\nAC_LINK {\"relay_connected\":%s,\"lan_connected\":%s,\"transport\":\"%s\",\"mac_connected\":%s,\"response_age_ms\":%llu,\"packets\":%llu,\"reconnects\":%llu,\"probe\":%llu,\"pong\":%llu,\"probe_result\":%d,\"wifi_connected\":%s,\"scanning\":%s}\n",live&&!active_lan?"true":"false",live&&active_lan?"true":"false",active_lan?"wifi":"relay",mac?"true":"false",(unsigned long long)age,(unsigned long long)count,(unsigned long long)retries,(unsigned long long)probe,(unsigned long long)pong,result,wifi_connected?"true":"false",scanning?"true":"false");
         }
         continue;
 init_failed:

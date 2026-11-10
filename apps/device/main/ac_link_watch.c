@@ -2,6 +2,7 @@
 void ac_link_watch_start(ac_link_watch_t *w,uint64_t now){*w=(ac_link_watch_t){.started_ms=now,.last_response_ms=now,.last_probe_ms=now};}
 void ac_link_watch_open(ac_link_watch_t *w,uint64_t now){ac_link_watch_start(w,now);w->connected=true;}
 void ac_link_watch_response(ac_link_watch_t *w,uint64_t now){w->last_response_ms=now;}
+bool ac_link_watch_allow_upgrade(const ac_link_watch_t *w,uint64_t now,bool peer_present){return !peer_present||!w->connected||now-w->last_response_ms>=20000;}
 ac_link_action_t ac_link_watch_tick(ac_link_watch_t *w,uint64_t now){
     if(!w->connected)return now-w->started_ms>=30000?AC_LINK_RECONNECT:AC_LINK_WAIT;
     if(now-w->last_response_ms>=20000)return AC_LINK_RECONNECT;

@@ -12,3 +12,5 @@ const char *ac_network_label(void);
 bool ac_network_scan(void);
 bool ac_network_join_local(const ac_wifi_join_t *request);
 void ac_network_wifi_status(ac_wifi_status_t *status);
+/* Called only after a remote view passed validation and was applied to LVGL. */
+void ac_network_view_applied(void);

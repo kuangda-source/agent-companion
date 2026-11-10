@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     bool smoke_usage_switch=false,smoke_usage_back=false;
     bool smoke_keyboard=false, smoke_parallax=false, smoke_theme=false, smoke_theme_dismiss=false, smoke_theme_open=false;
     bool smoke_assistant=false, smoke_tools=false, smoke_assistant_update=false, smoke_assistant_scroll=false, smoke_assistant_escape=false,smoke_wifi=false;
-    bool smoke_assistant_long=false;
+    bool smoke_assistant_long=false,smoke_wifi_connected=false;
     const char *forced_theme=NULL;
     uint64_t settings_revision=UINT64_MAX;
     const char *capture = NULL;
@@ -110,6 +110,7 @@ int main(int argc, char **argv)
         else if(strcmp(argv[i], "--smoke-assistant") == 0) smoke_assistant=true;
         else if(strcmp(argv[i], "--smoke-tools") == 0) smoke_tools=true;
         else if(strcmp(argv[i], "--smoke-wifi") == 0) smoke_wifi=true;
+        else if(strcmp(argv[i], "--smoke-wifi-connected") == 0) {smoke_wifi=true;smoke_wifi_connected=true;}
         else if(strcmp(argv[i], "--smoke-assistant-update") == 0) smoke_assistant_update=true;
         else if(strcmp(argv[i], "--smoke-assistant-scroll") == 0) {smoke_assistant_scroll=true;smoke_assistant=true;}
         else if(strcmp(argv[i], "--smoke-assistant-escape") == 0) {smoke_assistant_escape=true;smoke_assistant=true;}
@@ -236,6 +237,11 @@ int main(int argc, char **argv)
             click.button.x=450;click.button.y=168;SDL_PushEvent(&click);
         }
         if(smoke_wifi&&mock&&frames==60)ac_wifi_panel_open();
+        if(smoke_wifi_connected&&mock&&frames==90){
+            ac_wifi_status_t wifi={.revision=10,.connected=true,.relay_configured=true,.link_connected=true,.mac_connected=true,.data_fresh=true,.count=1};
+            strcpy(wifi.ssid,"Example Wi-Fi");strcpy(wifi.ip,"192.0.2.10");strcpy(wifi.message,"请选择网络并输入密码");
+            strcpy(wifi.networks[0].ssid,"Example Wi-Fi");wifi.networks[0].rssi=-45;wifi.networks[0].secured=true;wifi.networks[0].supported=true;ac_wifi_panel_update(&wifi);
+        }
         if((smoke_assistant || smoke_tools) && (frames==30 || frames==34)) {
             SDL_Event click={0};bool down=frames==30;click.type=down?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
             click.button.button=SDL_BUTTON_LEFT;click.button.state=down?SDL_PRESSED:SDL_RELEASED;

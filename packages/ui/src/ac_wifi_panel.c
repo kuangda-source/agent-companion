@@ -2,7 +2,7 @@
 #include "ac_neon.h"
 #include <stdio.h>
 #include <string.h>
-static lv_obj_t *overlay,*dialog,*networks,*ssid,*password,*keyboard,*summary,*notice,*saved_hint,*remote_hint,*scan_button,*join_button,*open_network,*reveal_label,*previous_focus;
+static lv_obj_t *overlay,*dialog,*networks,*ssid,*password,*keyboard,*summary,*notice,*saved_hint,*remote_hint,*scan_hint,*scan_button,*join_button,*open_network,*reveal_label,*previous_focus;
 static lv_group_t *screen_group,*group;
 static ac_wifi_scan_fn scan_handler;static ac_wifi_join_fn join_handler;
 static ac_wifi_status_t current;static bool mock_mode,revealed;static uint32_t rendered_revision;
@@ -37,9 +37,22 @@ void ac_wifi_panel_update(const ac_wifi_status_t *status){
     if(!overlay||!status)return;
     current=*status;
     if(!ac_wifi_panel_visible())return;
-    lv_label_set_text_fmt(summary,"%s%s",mock_mode?"MOCK · ":"",current.message[0]?current.message:"选择 Wi-Fi 网络；更换环境无需连接 Mac");
-    lv_label_set_text(remote_hint,current.mac_connected?"Mac 数据已连接":current.relay_configured?"中转配置已保留，联网后自动连接 Mac":current.lan_configured?"已保存局域网配对；异地使用前请在 Mac 配置中转":"尚未配置中转，异地使用前请在 Mac 配置一次");
-    if(current.scanning||current.connecting){lv_obj_add_state(scan_button,LV_STATE_DISABLED);lv_obj_add_state(join_button,LV_STATE_DISABLED);}else{lv_obj_remove_state(scan_button,LV_STATE_DISABLED);lv_obj_remove_state(join_button,LV_STATE_DISABLED);}
+    if(!current.available&&!mock_mode)lv_label_set_text(summary,"Wi-Fi：状态不可用，请在板端查看");
+    else if(current.connected)lv_label_set_text_fmt(summary,"%sWi-Fi：已连接 · %s%s%s",mock_mode?"MOCK · ":"",current.ssid[0]?current.ssid:"当前网络",current.ip[0]?" · IP ":"",current.ip);
+    else if(current.connecting)lv_label_set_text_fmt(summary,"%sWi-Fi：正在连接 · %s",mock_mode?"MOCK · ":"",current.ssid);
+    else lv_label_set_text_fmt(summary,"%sWi-Fi：未连接%s%s%s%s",mock_mode?"MOCK · ":"",current.ssid[0]?" · 已保存 ":"，请选择网络",current.ssid,current.wifi_note[0]?" · ":"",current.wifi_note);
+    lv_obj_set_style_text_color(summary,ac_color(!current.available&&!mock_mode?AC_NEON_MUTED:current.connected?AC_NEON_GREEN:current.connecting?AC_NEON_YELLOW:AC_NEON_MUTED),0);
+    if(current.scanning)lv_label_set_text(scan_hint,"正在扫描附近网络…");
+    else if(current.scan_failed)lv_label_set_text(scan_hint,"扫描失败，请重试");
+    else if(current.count)lv_label_set_text_fmt(scan_hint,"已发现 %zu 个网络",current.count);
+    else lv_label_set_text(scan_hint,"可扫描网络或手动输入");
+    if(!current.available&&!mock_mode)lv_label_set_text(remote_hint,"此处仅作预览，请在板端查看连接状态");
+    else if(current.link_connected)lv_label_set_text_fmt(remote_hint,"%s：已连接 · Mac：%s · %s",current.lan_active?"局域网":"中转",current.mac_connected?"在线":"离线",current.usb_active?"USB 优先":current.data_fresh?"数据已同步":"等待数据");
+    else if(!current.connected)lv_label_set_text(remote_hint,"远程连接：等待 Wi-Fi 联网");
+    else if(current.relay_configured||current.lan_configured)lv_label_set_text_fmt(remote_hint,"%s：%s%s",current.lan_active?"局域网":"中转",current.link_error_code==409?"等待旧连接释放，自动重试":current.link_error_code?"连接中断，正在重试":"连接中",current.usb_active?" · 数据：USB":"");
+    else lv_label_set_text(remote_hint,"尚未配置中转，请先在 Mac 配置一次");
+    lv_obj_set_style_text_color(remote_hint,ac_color((current.available||mock_mode)&&current.data_fresh?AC_NEON_GREEN:AC_NEON_MUTED),0);
+    if(current.scanning||current.connecting||(!current.available&&!mock_mode)){lv_obj_add_state(scan_button,LV_STATE_DISABLED);lv_obj_add_state(join_button,LV_STATE_DISABLED);}else{lv_obj_remove_state(scan_button,LV_STATE_DISABLED);lv_obj_remove_state(join_button,LV_STATE_DISABLED);}
     if(rendered_revision!=current.revision){
         rendered_revision=current.revision;lv_obj_clean(networks);
         if(!current.count)label(networks,12,12,292,current.scanning?"正在扫描附近网络…":"未发现网络，可手动填写名称",AC_NEON_MUTED);
@@ -96,7 +109,8 @@ void ac_wifi_panel_create(lv_obj_t *screen,bool mock){
     open_network=lv_checkbox_create(dialog);lv_obj_set_pos(open_network,370,280);lv_checkbox_set_text(open_network,"开放网络（无密码）");lv_obj_set_style_text_font(open_network,ac_theme_font(16),0);lv_obj_set_style_text_color(open_network,ac_color(AC_NEON_TEXT),0);lv_group_add_obj(group,open_network);
     join_button=button(dialog,730,274,240,44,"连接并保存",join);
     notice=label(dialog,370,327,600,"需要网页登录的网络暂不支持，可使用手机热点",AC_NEON_YELLOW);lv_obj_set_style_text_font(notice,ac_theme_font(13),0);
-    remote_hint=label(dialog,20,366,950,"",AC_NEON_MUTED);lv_obj_set_style_text_font(remote_hint,ac_theme_font(13),0);
+    scan_hint=label(dialog,20,370,328,"",AC_NEON_MUTED);lv_obj_set_style_text_font(scan_hint,ac_theme_font(13),0);
+    remote_hint=label(dialog,370,366,600,"",AC_NEON_MUTED);lv_obj_set_style_text_font(remote_hint,ac_theme_font(13),0);
     keyboard=lv_keyboard_create(dialog);lv_obj_set_align(keyboard,LV_ALIGN_TOP_LEFT);lv_obj_set_pos(keyboard,16,396);lv_obj_set_size(keyboard,968,170);lv_keyboard_set_popovers(keyboard,false);lv_keyboard_set_textarea(keyboard,ssid);lv_obj_set_style_bg_color(keyboard,ac_color(AC_NEON_BG),0);lv_obj_set_style_bg_color(keyboard,ac_color(AC_NEON_SURFACE),LV_PART_ITEMS);lv_obj_set_style_text_color(keyboard,ac_color(AC_NEON_TEXT),LV_PART_ITEMS);lv_obj_set_style_text_font(keyboard,&lv_font_montserrat_14,LV_PART_ITEMS);lv_obj_add_event_cb(keyboard,keyboard_event,LV_EVENT_ALL,NULL);lv_group_add_obj(group,keyboard);
     for(uint32_t i=0;i<lv_group_get_obj_count(group);i++)lv_obj_add_event_cb(lv_group_get_obj_by_index(group,i),escape,LV_EVENT_KEY,NULL);
     lv_obj_add_flag(overlay,LV_OBJ_FLAG_HIDDEN);

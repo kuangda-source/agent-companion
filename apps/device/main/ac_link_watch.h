@@ -7,3 +7,5 @@ void ac_link_watch_start(ac_link_watch_t *watch,uint64_t now);
 void ac_link_watch_open(ac_link_watch_t *watch,uint64_t now);
 void ac_link_watch_response(ac_link_watch_t *watch,uint64_t now);
 ac_link_action_t ac_link_watch_tick(ac_link_watch_t *watch,uint64_t now);
+/* A reachable candidate port is not a reason to preempt a healthy peer path. */
+bool ac_link_watch_allow_upgrade(const ac_link_watch_t *watch,uint64_t now,bool peer_present);

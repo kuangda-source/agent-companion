@@ -70,7 +70,7 @@ static void apply_feed(const ac_assistant_feed_t *f){
 static void tick(lv_timer_t *timer){
     (void)timer;uint64_t now=millis();ac_bootstrap_screen_tick(now);
     static uint64_t wifi_updated;static ac_wifi_status_t wifi;
-    if(ac_wifi_panel_visible()&&now-wifi_updated>=250){wifi_updated=now;ac_network_wifi_status(&wifi);ac_wifi_panel_update(&wifi);}
+    if(now-wifi_updated>=250){wifi_updated=now;ac_network_wifi_status(&wifi);wifi.usb_active=last_usb_received&&now-last_usb_received<4000;ac_wifi_panel_update(&wifi);}
     if(!connected)ac_bootstrap_screen_connection_hint(ac_network_label());
     if(connected&&now-last_received>8000){connected=false;ac_bootstrap_screen_connection_lost();last_feed->status=AC_ASSISTANT_OFFLINE;apply_feed(last_feed);event("disconnected",NULL,NULL);}
 }
@@ -119,7 +119,7 @@ static void apply_packet(input_packet_t packet,ac_snapshot_t *snapshot,ac_assist
                 bool display_ok=apply_display(get(get(o,"settings"),"display"));
                 ac_bootstrap_screen_apply(snapshot,millis());if(feed_ok){*last_feed=*feed;apply_feed(last_feed);}if(detail_ok)ac_bootstrap_screen_detail(detail);
                 last_received=millis();connected=true;active_remote=packet.remote;
-                if(packet.remote){strcpy(last_boot,boot->valuestring);last_wire=(uint64_t)wire->valuedouble;}else last_usb_received=millis();
+                if(packet.remote){strcpy(last_boot,boot->valuestring);last_wire=(uint64_t)wire->valuedouble;ac_network_view_applied();}else last_usb_received=millis();
                 if(!packet.remote&&cJSON_IsTrue(get(o,"capture")))screen=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);
                 bsp_display_unlock();
                 if(display_ok)report_display();
@@ -170,7 +170,7 @@ void app_main(void){
     lv_timer_create(tick,16,NULL);lv_display_add_event_cb(display,refreshed,LV_EVENT_REFR_READY,NULL);
     lv_indev_t *input=NULL;while((input=lv_indev_get_next(input)))if(lv_indev_get_type(input)==LV_INDEV_TYPE_POINTER){lv_indev_add_event_cb(input,touch,LV_EVENT_PRESSED,NULL);lv_indev_add_event_cb(input,touch,LV_EVENT_RELEASED,NULL);}
     ac_wifi_panel_handlers(ac_network_scan,ac_network_join_local);
-    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.19");
+    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.20");
     incoming=xQueueCreate(2,sizeof(input_packet_t));assert(incoming);
     xTaskCreate(apply_task,"ac_apply",12288,NULL,4,NULL);
     ac_network_init(submit);
