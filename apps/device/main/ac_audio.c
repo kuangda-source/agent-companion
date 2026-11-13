@@ -33,14 +33,14 @@ static void reply(const char *id,const char *state,size_t offset,bool remote){ch
 static void diagnostic(const audio_job_t *job,const char *state,const char *reason,size_t bytes){printf("\nAC_AUDIO {\"id\":\"%s\",\"state\":\"%s\",\"reason\":\"%s\",\"bytes\":%u}\n",job->id,state,reason,(unsigned)bytes);fflush(stdout);}
 void ac_audio_capability(void){printf("\nAC_AUDIO_CAP {\"audio_protocol\":1,\"volume\":%u,\"muted\":%s,\"max_bytes\":960000}\n",atomic_load(&volume),atomic_load(&muted)?"true":"false");fflush(stdout);}
 void ac_audio_init(void){
- if(nvs_flash_init()==ESP_OK){nvs_handle_t h;if(nvs_open("ac_voice",NVS_READONLY,&h)==ESP_OK){uint8_t v=80,m=0;nvs_get_u8(h,"volume",&v);nvs_get_u8(h,"muted",&m);if(v<=80)atomic_store(&volume,v);atomic_store(&muted,m==1);size_t n=sizeof(ledger);if(nvs_get_blob(h,"started",ledger,&n)!=ESP_OK||n!=sizeof(ledger))memset(ledger,0,sizeof(ledger));for(unsigned i=0;i<IDS;i++)ledger[i][80]=0;uint32_t next=0;nvs_get_u32(h,"cursor",&next);ledger_next=next%IDS;nvs_close(h);}}
+ if(nvs_flash_init()==ESP_OK){nvs_handle_t h;if(nvs_open("ac_voice",NVS_READONLY,&h)==ESP_OK){uint8_t v=80,m=0;nvs_get_u8(h,"volume",&v);nvs_get_u8(h,"muted",&m);if(v<=100)atomic_store(&volume,v);atomic_store(&muted,m==1);size_t n=sizeof(ledger);if(nvs_get_blob(h,"started",ledger,&n)!=ESP_OK||n!=sizeof(ledger))memset(ledger,0,sizeof(ledger));for(unsigned i=0;i<IDS;i++)ledger[i][80]=0;uint32_t next=0;nvs_get_u32(h,"cursor",&next);ledger_next=next%IDS;nvs_close(h);}}
 }
 unsigned ac_audio_volume(void){return atomic_load(&volume);}
 bool ac_audio_muted(void){return atomic_load(&muted);}
 static void release_rx(void){if(receiving){free(receiving->pcm);free(receiving);receiving=NULL;}}
 void ac_audio_stop(void){atomic_store(&cancelled,true);}
 void ac_audio_settings(unsigned value,bool mute){
- if(value>80)return;atomic_store(&volume,value);atomic_store(&muted,mute);if(mute)ac_audio_stop();
+ if(value>100)return;atomic_store(&volume,value);atomic_store(&muted,mute);if(mute)ac_audio_stop();
  nvs_handle_t h;if(nvs_open("ac_voice",NVS_READWRITE,&h)==ESP_OK){nvs_set_u8(h,"volume",value);nvs_set_u8(h,"muted",mute);nvs_commit(h);nvs_close(h);}ac_audio_capability();
 }
 void ac_audio_tick(void){if(receiving&&(atomic_load(&cancelled)||(double)time(NULL)*1000>=receiving->expires))release_rx();}

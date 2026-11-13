@@ -14,10 +14,12 @@ int main(void){
     lv_init();lv_display_t *d=lv_display_create(1024,600);static uint8_t pixels[1024*600*2];lv_display_set_color_format(d,LV_COLOR_FORMAT_RGB565);lv_display_set_buffers(d,pixels,NULL,sizeof(pixels),LV_DISPLAY_RENDER_MODE_FULL);lv_display_set_flush_cb(d,flush);
     lv_group_t *g=lv_group_create();lv_group_set_default(g);lv_indev_t *pointer=lv_indev_create();lv_indev_set_type(pointer,LV_INDEV_TYPE_POINTER);lv_indev_set_read_cb(pointer,read_pointer);ac_neon_animations(false);
     ac_volume_panel_create(lv_screen_active(),false);ac_volume_panel_handler(save,stop);ac_volume_panel_update(80,false);ac_volume_panel_open();lv_obj_update_layout(lv_screen_active());
-    assert(contains(lv_screen_active(),"音量 100%"));unsigned at=0;lv_obj_t *slider=find(lv_screen_active(),&lv_slider_class,&at);assert(slider);
+    assert(contains(lv_screen_active(),"音量 80%"));unsigned at=0;lv_obj_t *slider=find(lv_screen_active(),&lv_slider_class,&at);assert(slider);
     lv_obj_add_state(slider,LV_STATE_PRESSED);lv_slider_set_value(slider,50,LV_ANIM_OFF);lv_obj_send_event(slider,LV_EVENT_VALUE_CHANGED,NULL);assert(saves==0);ac_volume_panel_update(80,false);assert(lv_slider_get_value(slider)==50);
-    lv_obj_remove_state(slider,LV_STATE_PRESSED);lv_obj_send_event(slider,LV_EVENT_RELEASED,NULL);assert(saves==1&&saved_volume==40&&!saved_muted);
+    lv_obj_remove_state(slider,LV_STATE_PRESSED);lv_obj_send_event(slider,LV_EVENT_RELEASED,NULL);assert(saves==1&&saved_volume==50&&!saved_muted);
     click(pointer,334,346);assert(saves==2&&saved_muted);click(pointer,360,410);assert(stops==1);assert(ac_volume_panel_close());assert(!contains(lv_screen_active(),"音量"));
-    ac_volume_panel_open();ac_volume_panel_update(0,true);assert(contains(lv_screen_active(),"音量 0%"));ac_volume_panel_destroy();
+    ac_volume_panel_open();ac_volume_panel_update(100,false);assert(contains(lv_screen_active(),"音量 100%"));assert(lv_slider_get_value(slider)==100);lv_obj_send_event(slider,LV_EVENT_RELEASED,NULL);assert(saved_volume==100);
+    ac_volume_panel_update(101,false);assert(lv_slider_get_value(slider)==100);
+    ac_volume_panel_update(0,true);assert(contains(lv_screen_active(),"音量 0%"));ac_volume_panel_destroy();
     lv_group_set_default(NULL);lv_obj_clean(lv_screen_active());lv_indev_delete(pointer);lv_group_delete(g);lv_display_delete(d);lv_deinit();puts("PASS volume: drag survives refresh, release saves, mute, stop and reopen");return 0;
 }
