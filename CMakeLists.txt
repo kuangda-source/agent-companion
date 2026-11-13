@@ -31,6 +31,7 @@ add_library(agent_companion_ui STATIC
     packages/ui/src/ac_usage_panel.c
     packages/ui/src/ac_assistant_panel.c
     packages/ui/src/ac_wifi_panel.c
+    packages/ui/src/ac_volume_panel.c
     packages/ui/src/ac_neon.c
     packages/ui/src/ac_theme.c
     packages/ui/src/ac_bootstrap_screen.c)
@@ -89,3 +90,8 @@ add_executable(test_ui_wifi tests/test_ui_wifi.c)
 target_link_libraries(test_ui_wifi PRIVATE agent_companion_ui)
 target_compile_options(test_ui_wifi PRIVATE -Wall -Wextra -Werror)
 add_test(NAME ui_wifi COMMAND test_ui_wifi)
+
+add_executable(test_ui_volume tests/test_ui_volume.c)
+target_link_libraries(test_ui_volume PRIVATE agent_companion_ui)
+target_compile_options(test_ui_volume PRIVATE -Wall -Wextra -Werror)
+add_test(NAME ui_volume COMMAND test_ui_volume)

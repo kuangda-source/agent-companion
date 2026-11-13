@@ -1,3 +1,4 @@
+import {LinkAudio} from './link-audio.ts';
 /** One paired screen over local TLS; management API stays on loopback. */
 import {networkInterfaces,hostname} from "node:os";
 import {join} from "node:path";
@@ -22,7 +23,7 @@ interface Peer{seen:number;window:number;count:number}
 export class LanLink {
  private server:ReturnType<typeof Bun.serve<Peer>>|null=null;
  private peer:ServerWebSocket<Peer>|null=null;
- private feed:DeviceSession;
+ readonly audio:LinkAudio;private feed:DeviceSession;
  private credentials:Credentials;
  private directory:string;
  private timer:ReturnType<typeof setInterval>;
@@ -33,7 +34,7 @@ export class LanLink {
   const path=join(this.directory,'pair.json'),hosts=lanAddresses();
   this.credentials=existsSync(path)?JSON.parse(readFileSync(path,'utf8')) as Credentials:{token:Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex'),host:hosts[0]?.host??'127.0.0.1'};
   if(!/^[a-f0-9]{64}$/.test(this.credentials.token)||!localHost(this.credentials.host))throw new Error('invalid_lan_pair');this.save();
-  this.feed=new DeviceSession(collector,settings,assistant);this.timer=setInterval(()=>this.tick(),1000);this.tick();
+  this.feed=new DeviceSession(collector,settings,assistant,"wifi");this.audio=new LinkAudio('paired-screen',this.feed.boot,p=>{if(!this.peer||this.peer.getBufferedAmount()>192*1024)throw new Error('audio_backpressure');this.peer.send(JSON.stringify(p));},()=>this.feed.ownsDisplay()&&this.status().data_fresh);this.timer=setInterval(()=>this.tick(),1000);this.tick();
  }
  private save(){const p=join(this.directory,'pair.json');writeFileSync(p,JSON.stringify(this.credentials),{mode:0o600});chmodSync(p,0o600);}
  private openssl(args:string[]){const r=spawnSync('/usr/bin/openssl',args,{stdio:'pipe',timeout:10000});if(r.status!==0)throw new Error('lan_certificate_failed');}
@@ -77,14 +78,15 @@ export class LanLink {
    websocket:{maxPayloadLength:4096,idleTimeout:45,sendPings:true,backpressureLimit:384*1024,closeOnBackpressureLimit:true,
     open:ws=>{if(this.peer){ws.close(1008,'occupied');return;}this.peer=ws;this.lastAck=null;ws.send(JSON.stringify({kind:'peer',mac_connected:true,device_connected:true}));this.sendView();},
     message:(ws,raw)=>{
-     if(this.peer!==ws)return;const now=performance.now();if(now-ws.data.window>1000){ws.data.window=now;ws.data.count=0;}if(++ws.data.count>8){ws.close(1008,'rate limit');return;}
+     if(this.peer!==ws)return;const now=performance.now();if(now-ws.data.window>1000){ws.data.window=now;ws.data.count=0;}if(++ws.data.count>48){ws.close(1008,'rate limit');return;}
      let p:Record<string,unknown>;try{const v:unknown=JSON.parse(String(raw));if(!v||typeof v!=='object'||Array.isArray(v))throw 0;p=v as Record<string,unknown>;}catch{ws.close(1007,'JSON required');return;}ws.data.seen=now;
      if(p.kind==='heartbeat'&&Number.isSafeInteger(p.id)&&Number(p.id)>=0){ws.send(JSON.stringify({kind:'heartbeat',id:p.id,mac_connected:true,device_connected:true}));return;}
-     if(p.kind==='applied'){const id=this.feed.acknowledge(p);if(id!==null){this.lastAck=Date.now();this.ackId=id;}return;}
+     if(this.audio.receive(p))return;
+     if(p.kind==='applied'){this.audio.negotiate(p);const id=this.feed.acknowledge(p);if(id!==null){this.lastAck=Date.now();this.ackId=id;}return;}
      if(['theme','detail','assistant_refresh'].includes(String(p.kind))){if(this.feed.command(p))this.sendView();return;}
      if(['disconnected','snapshot_rejected','frame_timeout','frame_crc_error','frame_json_error','provision_rejected'].includes(String(p.kind)))return;
      ws.close(1008,'unsupported packet');
-    },close:ws=>{if(this.peer===ws){this.peer=null;this.lastAck=null;}}
+    },close:ws=>{if(this.peer===ws){this.audio.reset();this.peer=null;this.lastAck=null;}}
    }
   });
  }
@@ -100,6 +102,6 @@ export class LanLink {
    return Response.json({status:'queued',request_id},{status:202});
   }catch(e){return Response.json({error:e instanceof Error?e.message:'invalid_request'},{status:400});}
  }
- private stopServer(){this.peer=null;this.lastAck=null;this.server?.stop(true);this.server=null;}
+ private stopServer(){this.audio?.reset();this.peer=null;this.lastAck=null;this.server?.stop(true);this.server=null;}
  close(){this.closed=true;clearInterval(this.timer);this.stopServer();}
 }

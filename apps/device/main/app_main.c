@@ -20,6 +20,7 @@
 #include "ac_theme.h"
 #include "ac_network.h"
 #include "ac_audio.h"
+#include "ac_volume_panel.h"
 #include "ac_wifi_panel.h"
 #include "freertos/queue.h"
 #include <math.h>
@@ -32,8 +33,9 @@ static const char *TAG="ac_device";
 static uint64_t last_received;
 static bool connected,active_remote;
 static uint64_t last_usb_received;
-typedef struct {char *data;size_t length;bool remote;} input_packet_t;
+typedef struct {char *data;size_t length;bool remote,view;} input_packet_t;
 static QueueHandle_t incoming;
+static char last_audio_boot[40];
 static char last_boot[40];
 static uint64_t last_wire;
 static unsigned rendered,touches;
@@ -63,6 +65,7 @@ static void report_display(void){
 }
 static void request_detail(const char *id){event("detail","id",id);}
 static void request_theme(const char *theme){event("theme","value",theme);}
+static void audio_settings(unsigned volume,bool muted){ac_audio_settings(volume,muted);}
 static void request_refresh(void){event("assistant_refresh",NULL,NULL);}
 static void apply_feed(const ac_assistant_feed_t *f){
     ac_assistant_message_view_t messages[8];for(size_t i=0;i<f->message_count;++i)messages[i]=(ac_assistant_message_view_t){f->messages[i].id,f->messages[i].time,f->messages[i].text,f->messages[i].source};
@@ -71,7 +74,8 @@ static void apply_feed(const ac_assistant_feed_t *f){
 static void tick(lv_timer_t *timer){
     (void)timer;uint64_t now=millis();ac_bootstrap_screen_tick(now);
     static uint64_t wifi_updated;static ac_wifi_status_t wifi;
-    if(now-wifi_updated>=250){wifi_updated=now;ac_network_wifi_status(&wifi);wifi.usb_active=last_usb_received&&now-last_usb_received<4000;ac_wifi_panel_update(&wifi);}
+    if(now-wifi_updated>=250){wifi_updated=now;ac_volume_panel_update(ac_audio_volume(),ac_audio_muted());ac_network_wifi_status(&wifi);wifi.usb_active=last_usb_received&&now-last_usb_received<4000;ac_wifi_panel_update(&wifi);}
+    static uint64_t cap_updated;if(now-cap_updated>=2000){cap_updated=now;ac_audio_capability();}
     if(!connected)ac_bootstrap_screen_connection_hint(ac_network_label());
     if(connected&&now-last_received>8000){connected=false;ac_bootstrap_screen_connection_lost();last_feed->status=AC_ASSISTANT_OFFLINE;apply_feed(last_feed);event("disconnected",NULL,NULL);}
 }
@@ -88,17 +92,23 @@ static void send_screen(lv_draw_buf_t *image){
 static void submit(const char *data,size_t length,bool remote){
     if(!incoming||length<1||length>FRAME_LIMIT)return;
     input_packet_t packet={.data=heap_caps_malloc(length+1,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT),.length=length,.remote=remote};if(!packet.data)return;
-    memcpy(packet.data,data,length);packet.data[length]=0;if(xQueueSend(incoming,&packet,0)!=pdTRUE)free(packet.data);
+    memcpy(packet.data,data,length);packet.data[length]=0;packet.view=remote;if(remote&&length<32768){cJSON *header=cJSON_ParseWithLength(data,length);packet.view=!cJSON_IsString(get(header,"kind"));cJSON_Delete(header);}if(xQueueSend(incoming,&packet,0)!=pdTRUE)free(packet.data);
 }
 static void apply_packet(input_packet_t packet,ac_snapshot_t *snapshot,ac_assistant_feed_t *feed,ac_session_detail_t *detail){
     char *body=packet.data;size_t length=packet.length;
             cJSON *o=cJSON_ParseWithLength(body,length);if(!o){event("frame_json_error",NULL,NULL);return;}
             const cJSON *kind=get(o,"kind");
             if(cJSON_IsString(kind)){
-                if(!packet.remote&&!strcmp(kind->valuestring,"audio_pcm"))ac_audio_submit(o);
+                if(!strncmp(kind->valuestring,"audio_",6)&&strcmp(kind->valuestring,"audio_pcm")){
+                    const cJSON *boot=get(o,"gateway_boot_id"),*sent=get(o,"sent_at");
+                    bool same_boot=cJSON_IsString(boot)&&!strcmp(boot->valuestring,last_audio_boot),fresh=cJSON_IsNumber(sent)&&isfinite(sent->valuedouble)&&fabs((double)time(NULL)-sent->valuedouble)<15;
+                    if(!strcmp(kind->valuestring,"audio_start"))printf("\nAC_AUDIO_DEBUG {\"stage\":\"envelope\",\"connected\":%s,\"view_fresh\":%s,\"same_source\":%s,\"same_boot\":%s,\"clock_fresh\":%s}\n",connected?"true":"false",millis()-last_received<8000?"true":"false",packet.remote==active_remote?"true":"false",same_boot?"true":"false",fresh?"true":"false");
+                    if(connected&&millis()-last_received<8000&&packet.remote==active_remote&&same_boot&&fresh)ac_audio_packet(o,packet.remote);
+                }
+                else if(!packet.remote&&!strcmp(kind->valuestring,"audio_pcm"))ac_audio_submit(o);
                 else if(!packet.remote&&!strcmp(kind->valuestring,"provision")){if(!ac_network_provision(o))event("provision_rejected",NULL,NULL);}
                 else if(!packet.remote&&!strcmp(kind->valuestring,"link_config")){if(!ac_network_configure_link(o))event("provision_rejected",NULL,NULL);}
-                else if(!packet.remote&&!strcmp(kind->valuestring,"capture")){lv_draw_buf_t *screen=NULL;if(bsp_display_lock(2000)){if(cJSON_IsTrue(get(o,"schedules")))ac_bootstrap_screen_show_schedules(true);const cJSON *wifi=get(o,"wifi");if(cJSON_IsTrue(wifi))ac_wifi_panel_open();else if(cJSON_IsFalse(wifi))ac_wifi_panel_close();screen=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);bsp_display_unlock();}if(screen)send_screen(screen);}
+                else if(!packet.remote&&!strcmp(kind->valuestring,"capture")){lv_draw_buf_t *screen=NULL;if(bsp_display_lock(2000)){if(cJSON_IsTrue(get(o,"volume_panel")))ac_volume_panel_open();if(cJSON_IsTrue(get(o,"schedules")))ac_bootstrap_screen_show_schedules(true);const cJSON *wifi=get(o,"wifi");if(cJSON_IsTrue(wifi))ac_wifi_panel_open();else if(cJSON_IsFalse(wifi))ac_wifi_panel_close();screen=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);bsp_display_unlock();}if(screen)send_screen(screen);}
                 cJSON_Delete(o);return;
             }
             const cJSON *clock=get(o,"sent_at"),*wire=get(o,"id");
@@ -120,7 +130,7 @@ static void apply_packet(input_packet_t packet,ac_snapshot_t *snapshot,ac_assist
                 if(cJSON_IsBool(scheduled))ac_bootstrap_screen_set_scheduled_tasks_visible(cJSON_IsTrue(scheduled));
                 bool display_ok=apply_display(get(get(o,"settings"),"display"));
                 ac_bootstrap_screen_apply(snapshot,millis());if(feed_ok){*last_feed=*feed;apply_feed(last_feed);}if(detail_ok)ac_bootstrap_screen_detail(detail);
-                last_received=millis();connected=true;active_remote=packet.remote;
+                last_received=millis();connected=true;active_remote=packet.remote;if(cJSON_IsString(boot)&&strlen(boot->valuestring)==36)strcpy(last_audio_boot,boot->valuestring);
                 if(packet.remote){strcpy(last_boot,boot->valuestring);last_wire=(uint64_t)wire->valuedouble;ac_network_view_applied();}else last_usb_received=millis();
                 if(!packet.remote&&cJSON_IsTrue(get(o,"capture")))screen=lv_snapshot_take(lv_screen_active(),LV_COLOR_FORMAT_RGB565);
                 bsp_display_unlock();
@@ -128,21 +138,21 @@ static void apply_packet(input_packet_t packet,ac_snapshot_t *snapshot,ac_assist
                 printf("\nAC_ACK %.0f seq=%llu sessions=%zu/%zu/%zu messages=%zu\n",wire->valuedouble,(unsigned long long)snapshot->seq,snapshot->agents[0].session_count,snapshot->agents[1].session_count,snapshot->agents[2].session_count,feed_ok?feed->message_count:0);fflush(stdout);
                 if(packet.remote){char ack[512],display_ack[256]="";
                     if(display_ok)snprintf(display_ack,sizeof(display_ack),",\"display\":{\"revision\":%llu,\"brightness_percent\":%u,\"screen_on\":%s,\"backlight_duty\":%lu}",(unsigned long long)applied_display.revision,applied_display.brightness_percent,applied_display.screen_on?"true":"false",(unsigned long)ledc_get_duty(LEDC_LOW_SPEED_MODE,CONFIG_BSP_DISPLAY_BRIGHTNESS_LEDC_CH));
-                    snprintf(ack,sizeof(ack),"{\"kind\":\"applied\",\"id\":%.0f,\"gateway_boot_id\":\"%s\"%s}",wire->valuedouble,last_boot,display_ack);ac_network_send(ack);}
+                    snprintf(ack,sizeof(ack),"{\"kind\":\"applied\",\"id\":%.0f,\"gateway_boot_id\":\"%s\",\"audio_protocol\":1%s}",wire->valuedouble,last_boot,display_ack);ac_network_send(ack);}
             }if(screen)send_screen(screen);cJSON_Delete(o);
 }
 static void apply_task(void *unused){
     (void)unused;ac_snapshot_t *snapshot=heap_caps_calloc(1,sizeof(*snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
     ac_assistant_feed_t *feed=heap_caps_calloc(1,sizeof(*feed),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
     ac_session_detail_t *detail=heap_caps_calloc(1,sizeof(*detail),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);assert(snapshot&&feed&&detail);
-    for(;;){input_packet_t packet;if(xQueueReceive(incoming,&packet,portMAX_DELAY)==pdTRUE){
+    for(;;){input_packet_t packet;if(xQueueReceive(incoming,&packet,pdMS_TO_TICKS(250))==pdTRUE){
         /* Remote packets are complete views. Keep the newest adjacent view,
          * preserving FIFO for USB provisioning/capture commands. */
         input_packet_t next;unsigned skipped=0;
-        while(packet.remote&&xQueuePeek(incoming,&next,0)==pdTRUE&&next.remote){xQueueReceive(incoming,&next,0);free(packet.data);packet=next;skipped++;}
+        while(packet.view&&xQueuePeek(incoming,&next,0)==pdTRUE&&next.view){xQueueReceive(incoming,&next,0);free(packet.data);packet=next;skipped++;}
         if(skipped)ESP_LOGI(TAG,"coalesced %u queued remote views",skipped);
         apply_packet(packet,snapshot,feed,detail);free(packet.data);
-    }}
+    }ac_audio_tick();}
 }
 static void receive_task(void *unused){
     (void)unused;char *body=heap_caps_malloc(FRAME_LIMIT+1,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);assert(body);
@@ -171,9 +181,9 @@ void app_main(void){
     ac_bootstrap_screen_create(true,false,request_detail);ac_bootstrap_screen_theme_handler(request_theme);ac_assistant_panel_refresh_handler(request_refresh);apply_feed(last_feed);
     lv_timer_create(tick,16,NULL);lv_display_add_event_cb(display,refreshed,LV_EVENT_REFR_READY,NULL);
     lv_indev_t *input=NULL;while((input=lv_indev_get_next(input)))if(lv_indev_get_type(input)==LV_INDEV_TYPE_POINTER){lv_indev_add_event_cb(input,touch,LV_EVENT_PRESSED,NULL);lv_indev_add_event_cb(input,touch,LV_EVENT_RELEASED,NULL);}
-    ac_wifi_panel_handlers(ac_network_scan,ac_network_join_local);
-    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.23");
-    incoming=xQueueCreate(2,sizeof(input_packet_t));assert(incoming);
+    ac_wifi_panel_handlers(ac_network_scan,ac_network_join_local);ac_audio_init();ac_volume_panel_handler(audio_settings,ac_audio_stop);ac_volume_panel_update(ac_audio_volume(),ac_audio_muted());
+    bsp_display_unlock();ESP_ERROR_CHECK(bsp_display_brightness_set(75));event("ready","version","V1-board-0.2.25");
+    incoming=xQueueCreate(10,sizeof(input_packet_t));assert(incoming);
     xTaskCreate(apply_task,"ac_apply",12288,NULL,4,NULL);
     ac_network_init(submit);
     xTaskCreate(receive_task,"ac_usb_rx",4096,NULL,4,NULL);

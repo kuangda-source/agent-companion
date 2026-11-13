@@ -47,3 +47,8 @@ test('native Qwen schema scopes citations to the correct session and removes tru
  const request=assistantProviderBody({base_url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3.8-flash'},{max_completion_tokens:32},'briefing',schema);
  expect(request.response_format).toMatchObject({type:'json_schema',json_schema:{strict:true}});expect('max_tokens' in request).toBe(false);expect('max_completion_tokens' in request).toBe(false);expect(()=>briefingOutputSchema([{session_id:'missing',project_id:'project'}],new Map())).toThrow('no_readable_sources');
 });
+
+test('private audio cache keys include model voice and text; changed voice synthesizes only a new request',async()=>{
+ const f=fixture();let calls=0;const pcm=new Uint8Array(100),speech=new SpeechProvider(f.dir,undefined,async(url)=>{calls++;return String(url).includes('/SpeechSynthesizer')?Response.json({output:{audio:{url:'https://dashscope-result-test.oss-cn-beijing.aliyuncs.com/fixture'}}}):new Response(pcm);});
+ try{speech.update({enabled:true,provider:'bailian',base_url:'https://dashscope.aliyuncs.com',model:'fixture',voice:'one'});const signal=new AbortController().signal;await speech.synthesize('fixture','',signal);await speech.synthesize('fixture','',signal);expect(calls).toBe(2);speech.update({voice:'two'});await speech.synthesize('fixture','',signal);expect(calls).toBe(4);expect(speech.configuration().requests_this_run).toBe(2);}finally{f.remove();}
+});

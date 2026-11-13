@@ -1,4 +1,4 @@
-import {chmodSync,existsSync,mkdirSync,readFileSync,renameSync,writeFileSync} from 'node:fs';
+import {chmodSync,existsSync,mkdirSync,readFileSync,renameSync,writeFileSync,readdirSync,unlinkSync,statSync} from 'node:fs';
 import {join} from 'node:path';
 import {object} from './adapters/common.ts';
 import {spoken,type TTSPort} from './voice-broadcast.ts';
@@ -17,12 +17,12 @@ async function bounded(response:Response,limit:number):Promise<Uint8Array>{
 }
 /** Separate opt-in TTS configuration; saving a model/key never starts synthesis. */
 export class SpeechProvider implements TTSPort {
- private config:SpeechConfiguration;private networkRequests=0;
+ private config:SpeechConfiguration;private networkRequests=0;private error:string|null=null;
  constructor(private runtime:string,private system?:TTSPort,private request:(input:string|URL,init?:RequestInit)=>Promise<Response>=fetch){
   const path=join(runtime,'speech-config.json');this.config=existsSync(path)?{...initial(),...JSON.parse(readFileSync(path,'utf8'))}:initial();
  }
  private keyPath(){return join(this.runtime,'secrets/tts-api-key');}
- configuration(){return{...this.config,has_key:existsSync(this.keyPath()),requests_this_run:this.networkRequests};}
+ configuration(){return{...this.config,has_key:existsSync(this.keyPath()),requests_this_run:this.networkRequests,last_error:this.error};}
  available(){return this.config.enabled&&(this.config.provider==='system'?!!this.system:!!this.config.base_url&&!!this.config.model&&!!this.config.voice&&existsSync(this.keyPath()));}
  update(input:unknown){
   const p=object(input),next={...this.config};if(!Object.keys(p).length||Object.keys(p).some(k=>!(k in next)))throw new Error('invalid_speech_config');
@@ -37,17 +37,22 @@ export class SpeechProvider implements TTSPort {
   if(!this.available()||signal.aborted)throw new Error('speech_disabled');const config={...this.config};
   if(config.provider==='system')return this.system!.synthesize(text,config.voice||voice,signal);
   const key=readFileSync(this.keyPath(),'utf8').trim();if(!key)throw new Error('speech_not_configured');
+  const clean=spoken(text).replaceAll(key,'[已隐藏凭据]'),directory=join(this.runtime,'voice-cache'),cacheKey=Bun.CryptoHasher.hash('sha256',JSON.stringify([config.base_url,config.model,config.voice,clean,16000,'pcm',Bun.CryptoHasher.hash('sha256',key,'hex')]),'hex'),cache=join(directory,cacheKey+'.pcm');
+  if(existsSync(cache)){const bytes=readFileSync(cache);if(bytes.length>=2&&bytes.length<=960000&&bytes.length%2===0)return new Uint8Array(bytes);}
   const root=bailianRoot(config.base_url),controller=new AbortController(),abort=()=>controller.abort();signal.addEventListener('abort',abort,{once:true});const timeout=setTimeout(abort,45000);
   try{
    this.networkRequests++;
-   const response=await this.request(root+'/api/v1/services/audio/tts/SpeechSynthesizer',{method:'POST',redirect:'error',signal:controller.signal,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:config.model,input:{text:spoken(text).replaceAll(key,'[已隐藏凭据]'),voice:config.voice,format:'pcm',sample_rate:16000}})});
+   const response=await this.request(root+'/api/v1/services/audio/tts/SpeechSynthesizer',{method:'POST',redirect:'error',signal:controller.signal,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:config.model,input:{text:clean,voice:config.voice,format:'pcm',sample_rate:16000}})});
+   if(!response.ok)throw new Error('speech_http_'+response.status);
    const raw=JSON.parse(new TextDecoder().decode(await bounded(response,65536))),audio=object(object(object(raw).output).audio);
    if(typeof audio.url!=='string')throw new Error('speech_invalid_response');const url=new URL(audio.url);
    if(url.username||url.password||url.port||url.hash||!/^dashscope-result-[a-z0-9-]+\.oss-[a-z0-9-]+\.aliyuncs\.com$/.test(url.hostname)||!['http:','https:'].includes(url.protocol))throw new Error('speech_invalid_download');
    url.protocol='https:'; // Signed OSS downloads use TLS and never receive the API key.
    const bytes=await bounded(await this.request(url,{redirect:'error',signal:controller.signal}),960000);
-   if(bytes.length<2||bytes.length%2)throw new Error('speech_invalid_audio');return bytes;
-  }catch{throw new Error(controller.signal.aborted?'speech_cancelled':'speech_provider_failed');}
+   if(bytes.length<2||bytes.length%2||Buffer.from(bytes.subarray(0,4)).toString('ascii')==='RIFF')throw new Error('speech_invalid_audio');
+   mkdirSync(directory,{recursive:true,mode:0o700});writeFileSync(cache+'.tmp',bytes,{mode:0o600});renameSync(cache+'.tmp',cache);
+   const files=readdirSync(directory).filter(n=>/^[a-f0-9]{64}\.pcm$/.test(n)).map(n=>({p:join(directory,n),at:statSync(join(directory,n)).mtimeMs})).sort((a,b)=>b.at-a.at);for(const file of files.slice(8))unlinkSync(file.p);this.error=null;return bytes;
+  }catch(error){const message=error instanceof Error?error.message:'';this.error=controller.signal.aborted?'speech_cancelled':/^speech_http_[1-5][0-9]{2}$/.test(message)?message:'speech_provider_failed';throw new Error(this.error);}
   finally{clearTimeout(timeout);signal.removeEventListener('abort',abort);}
  }
 }

@@ -5,6 +5,7 @@
 #include "ac_usage_panel.h"
 #include "ac_assistant_panel.h"
 #include "ac_wifi_panel.h"
+#include "ac_volume_panel.h"
 #include "ac_neon.h"
 #include <stdio.h>
 #include <string.h>
@@ -318,6 +319,7 @@ static void row_clicked(lv_event_t *e)
 }
 static void tool_requested(ac_tool_id_t tool)
 {
+    if(tool==AC_TOOL_VOLUME){ac_volume_panel_open();return;}
     if(tool==AC_TOOL_WIFI){ac_wifi_panel_open();return;}
     show_notice(tool==AC_TOOL_PELICAN?"鹈鹕测试 · 测试服务待接入":"连通性检测 · 检测服务待接入",2200);
     printf("UI tool_unavailable=%s\n",tool==AC_TOOL_PELICAN?"pelican":"connectivity");fflush(stdout);
@@ -346,6 +348,7 @@ bool ac_bootstrap_screen_close_theme_picker(void)
 }
 bool ac_bootstrap_screen_close_overlay(void)
 {
+    if(ac_volume_panel_close())return true;
     return ac_assistant_panel_close() || ac_bootstrap_screen_close_theme_picker();
 }
 static void theme_dismissed(lv_event_t *e)
@@ -516,7 +519,7 @@ void ac_bootstrap_screen_create(bool use_assets,bool mock,ac_detail_request_fn r
     ac_neon_flat(detail_body); lv_obj_set_style_anim_duration(detail_body,140,0);
     lv_obj_set_style_bg_color(detail_body,ac_color(0x70d6e2),LV_PART_SCROLLBAR); lv_obj_set_style_bg_opa(detail_body,LV_OPA_50,LV_PART_SCROLLBAR); lv_obj_set_style_width(detail_body,3,LV_PART_SCROLLBAR);
     ac_assistant_panel_create(screen,mock,tool_requested);
-    ac_wifi_panel_create(screen,mock);
+    ac_wifi_panel_create(screen,mock);ac_volume_panel_create(screen,mock);
     if(mock) {
         static const ac_assistant_message_view_t demo[]={
             {"demo-1","09:36","示例项目 A：本轮修改已报告完成，等待验收。","演示 · 项目进展"},
@@ -627,7 +630,7 @@ void ac_bootstrap_screen_tick(uint64_t now)
 void ac_bootstrap_screen_destroy(void)
 {
     ac_bootstrap_screen_close_theme_picker();lv_group_delete(theme_group);theme_group=NULL;
-    ac_wifi_panel_destroy();ac_assistant_panel_destroy();
+    ac_wifi_panel_destroy();ac_volume_panel_destroy();ac_assistant_panel_destroy();
     for(int i=0;i<AC_AGENT_COUNT;++i) ac_pet_widget_destroy(pets[i]);
     lv_obj_clean(lv_screen_active());
     theme_overlay=NULL;

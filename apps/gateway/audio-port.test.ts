@@ -22,3 +22,14 @@ test('official runtime flags distinguish user input, approvals, running and unlo
  const statuses=parseRuntimeStatus({data:[{id:'approval',status:{type:'active',activeFlags:['waitingOnApproval']}},{id:'input',status:{type:'active',activeFlags:['waitingOnUserInput']}},{id:'running',status:{type:'active',activeFlags:[]}},{id:'unloaded',status:{type:'notLoaded'}},{id:'idle',status:{type:'idle'}}]});
  expect([...statuses]).toEqual([['approval','waiting_user'],['input','waiting_user'],['running','running']]);
 });
+
+test('production window keeps bounded parallel chunks and awaits cancellation dispatch',async()=>{
+ const data=new Uint8Array(100000),info:AudioInfo={id:'audio',codec:'pcm_s16le',sample_rate:16000,channels:1,bytes:data.length,sha256:'a'.repeat(64)};let active=0,max=0,cancelled=false;
+ const port:DeviceAudioPort={device_id:'fixture',audio_protocol:1,chunk_bytes:16384,window_size:4,exchange:async(p)=>{
+  if(p.kind==='audio_start')return{delivery_id:'d',state:'accepted'};
+  if(p.kind==='audio_chunk'){active++;max=Math.max(max,active);await new Promise(r=>setTimeout(r,2));active--;return{delivery_id:'d',state:'chunk',next_offset:p.offset+p.data.length};}
+  if(p.kind==='audio_cancel'){await new Promise(r=>setTimeout(r,10));cancelled=true;return{delivery_id:'d',state:'rejected'};}
+  return{delivery_id:'d',state:'rejected'};
+ }};
+ await expect(transmitAudio(port,'d',info,data,Date.now()+60000,new AbortController().signal,()=>{})).rejects.toThrow();expect(max).toBe(4);expect(cancelled).toBe(true);
+});

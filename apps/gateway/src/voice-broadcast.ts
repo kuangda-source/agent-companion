@@ -10,17 +10,18 @@ import {transmitAudio,type DeviceAudioPort} from '../../../packages/protocol/src
 
 export type VoiceKind='input'|'error'|'completed'|'milestone'|'quota';
 export type DeliveryState='queued'|'preparing'|'ready'|'playing'|'played'|'cancelled'|'failed'|'unknown';
-export interface VoiceConfig {enabled:boolean;muted:boolean;quiet_enabled:boolean;quiet_start:number;quiet_end:number;provider:'system';voice:string}
+export interface VoiceConfig {enabled:boolean;muted:boolean;quiet_enabled:boolean;quiet_start:number;quiet_end:number;provider:'system';voice:string;input:boolean;error:boolean;completed:boolean;milestone:boolean;quota:boolean}
 export interface VoiceNotice {id:string;topic:string;session_id:string|null;kind:VoiceKind;priority:number;text:string;created_at:number;expires_at:number;not_before:number;state:DeliveryState;audio_id:string|null}
 export interface VoiceAudio {id:string;codec:'pcm_s16le';sample_rate:16000;channels:1;bytes:number;sha256:string}
 export interface TTSPort {available?():boolean;synthesize(text:string,voice:string,signal:AbortSignal):Promise<Uint8Array>}
-const initial=():VoiceConfig=>({enabled:false,muted:false,quiet_enabled:false,quiet_start:22*60,quiet_end:8*60,provider:'system',voice:''});
+const initial=():VoiceConfig=>({enabled:false,muted:false,quiet_enabled:false,quiet_start:22*60,quiet_end:8*60,provider:'system',voice:'',input:true,error:true,completed:true,milestone:true,quota:true});
 const TTL:Record<VoiceKind,number>={input:120000,error:120000,completed:600000,milestone:600000,quota:900000};
-export function spoken(value:string,max=160){return [...redactSecrets(value).replace(/```[\s\S]*?```/g,'').replace(/https?:\/\/\S+/g,'').replace(/\[[^\]]*\]\([^)]*\)/g,'').replace(/[*#`>_]/g,'').replace(/\s+/g,' ').trim()].slice(0,max).join('');}
+export function spoken(value:string,max=80){return [...redactSecrets(value).replace(/```[\s\S]*?```/g,'').replace(/https?:\/\/\S+/g,'').replace(/\[[^\]]*\]\([^)]*\)/g,'').replace(/[*#`>_]/g,'').replace(/\s+/g,' ').trim()].slice(0,max).join('');}
 
 /** Durable event queue. No implicit host playback and no model credentials. */
 export class VoiceBroadcasts {
-  private db:Database;private config:VoiceConfig;private busy=false;private delivering=false;private deliveryTopic:string|null=null;private deliveryAbort:AbortController|null=null;private closed=false;private abort:AbortController|null=null;private observed=false;
+  private audioLinks:unknown=null;setAudioLinks(value:unknown){this.audioLinks=value;}
+  private deviceReady=false;private preparingTopic:string|null=null;private db:Database;private config:VoiceConfig;private busy=false;private delivering=false;private deliveryTopic:string|null=null;private deliveryAbort:AbortController|null=null;private closed=false;private abort:AbortController|null=null;private observed=false;
   constructor(private runtime:string,private tts?:TTSPort,private clock:()=>number=()=>Date.now()){
     mkdirSync(runtime,{recursive:true,mode:0o700});this.db=new Database(join(runtime,'voice.sqlite'));chmodSync(join(runtime,'voice.sqlite'),0o600);
     this.db.exec(`PRAGMA journal_mode=WAL;
@@ -36,20 +37,20 @@ export class VoiceBroadcasts {
   private set(key:string,value:unknown){this.db.query('INSERT OR REPLACE INTO voice_meta VALUES(?,?)').run(key,JSON.stringify(value));}
   configuration(){return {...this.config};}
   update(input:unknown){const p=object(input),next={...this.config};if(!Object.keys(p).length||Object.keys(p).some(k=>!(k in next)))throw new Error('invalid_voice_config');
-    for(const key of ['enabled','muted','quiet_enabled'] as const)if(p[key]!==undefined){if(typeof p[key]!=='boolean')throw new Error('invalid_voice_config');next[key]=p[key];}
+    for(const key of ['enabled','muted','quiet_enabled','input','error','completed','milestone','quota'] as const)if(p[key]!==undefined){if(typeof p[key]!=='boolean')throw new Error('invalid_voice_config');next[key]=p[key];}
     for(const key of ['quiet_start','quiet_end'] as const)if(p[key]!==undefined){if(!Number.isInteger(p[key])||Number(p[key])<0||Number(p[key])>=1440)throw new Error('invalid_voice_config');next[key]=Number(p[key]);}
     if(p.provider!==undefined&&p.provider!=='system')throw new Error('invalid_voice_config');
     if(p.voice!==undefined){if(typeof p.voice!=='string'||p.voice.length>100||/[\x00-\x1f]/.test(p.voice))throw new Error('invalid_voice_config');next.voice=p.voice;}
     if(next.enabled!==this.config.enabled){this.observed=false;this.set('enabled_since',this.clock());this.db.exec("UPDATE voice_notices SET state='cancelled' WHERE state IN ('queued','ready','preparing')");}
-    this.config=next;this.set('config',next);if(!next.enabled||next.muted){this.abort?.abort();this.deliveryAbort?.abort();}return this.configuration();
+    this.config=next;for(const kind of ['input','error','completed','milestone','quota'] as const)if(!next[kind])for(const row of this.list())if(row.kind===kind)this.cancel(row.topic);this.set('config',next);if(!next.enabled||next.muted){this.abort?.abort();this.deliveryAbort?.abort();}return this.configuration();
   }
   private quiet(){const date=new Date(this.clock()),minute=date.getHours()*60+date.getMinutes(),{quiet_start:a,quiet_end:b}=this.config;return this.config.quiet_enabled&&(a===b||(a<b?minute>=a&&minute<b:minute>=a||minute<b));}
-  enqueue(input:{id:string;topic:string;session_id?:string|null;kind:VoiceKind;text:string;at?:number;delay?:number}){
-    if(!this.config.enabled)return false;const now=this.clock(),at=input.at??now,text=spoken(input.text);if(!text||!Number.isFinite(at)||at>now+60000||now-at>TTL[input.kind])return false;
-    const changed=this.db.query("INSERT OR IGNORE INTO voice_notices VALUES(?,?,?,?,?,?,?,?,?,'queued',NULL)").run(input.id,input.topic,input.session_id??null,input.kind,['input','error'].includes(input.kind)?0:input.kind==='quota'?2:1,text,at,at+TTL[input.kind],now+(input.delay??0));
+  enqueue(input:{id:string;topic:string;session_id?:string|null;kind:VoiceKind;text:string;at?:number;delay?:number;manual?:boolean}){
+    if(!this.config.enabled||!this.config[input.kind])return false;const now=this.clock(),at=input.at??now,text=spoken(input.text);if(!text||!Number.isFinite(at)||at>now+60000||now-at>TTL[input.kind])return false;
+    const changed=this.db.query("INSERT OR IGNORE INTO voice_notices VALUES(?,?,?,?,?,?,?,?,?,'queued',NULL)").run(input.id,input.topic,input.session_id??null,input.kind,input.manual?-1:['input','error'].includes(input.kind)?0:input.kind==='quota'?2:1,text,at,at+TTL[input.kind],now+(input.delay??0));
     return changed.changes>0;
   }
-  cancel(topic:string){this.db.query("UPDATE voice_notices SET state='cancelled' WHERE topic=? AND state IN ('queued','preparing','ready')").run(topic);if(this.deliveryTopic===topic)this.deliveryAbort?.abort();}
+  cancel(topic:string){this.db.query("UPDATE voice_notices SET state='cancelled' WHERE topic=? AND state IN ('queued','preparing','ready')").run(topic);if(this.preparingTopic===topic)this.abort?.abort();if(this.deliveryTopic===topic)this.deliveryAbort?.abort();}
   signal(value:MonitorSignal,title:string){
     if(!this.config.enabled||this.clock()-Date.parse(value.at)>120000)return;
     if(!this.db.query('INSERT OR IGNORE INTO voice_seen VALUES(?)').run(value.session_id+':'+value.id+':'+value.kind).changes)return;
@@ -70,8 +71,8 @@ export class VoiceBroadcasts {
         if(['running','completed','idle','error'].includes(s.state))this.cancel(s.id+':wait');
         if(s.state==='waiting_user'&&!s.status_source.includes('explicit_input_request')&&old&&old.state!=='waiting_user')this.enqueue({id:digest(s.id+':wait:'+s.started_at+':'+s.status_observed_at),topic:s.id+':wait',session_id:s.id,kind:'input',text:`${s.title}正在等待你的输入或确认。`,at:Date.parse(s.status_observed_at??'')});
         if(old&&s.completion_event_id&&s.completion_event_id!==old.completion){
-          const message=s.messages.findLast(m=>m.role==='assistant'),at=Date.parse(s.completion_event_at??''),messageAt=Date.parse(message?.timestamp??''),reply=message&&messageAt>=Date.parse(s.started_at??'')&&Math.abs(at-messageAt)<120000?spoken(message.text,90):'';
-          if(this.enqueue({id:s.completion_event_id,topic:s.id+':completed:'+s.completion_event_id,session_id:s.id,kind:'completed',text:`${spoken(s.title,40)}本轮已结束。${reply?'助手回复：'+reply:''}`,at,delay:20000}))this.set('completion-start:'+s.completion_event_id,s.started_at?Date.parse(s.started_at):at);
+          const message=s.messages.findLast(m=>m.role==='assistant'),at=Date.parse(s.completion_event_at??''),messageAt=Date.parse(message?.timestamp??''),reply=message&&messageAt>=Date.parse(s.started_at??'')&&Math.abs(at-messageAt)<120000?spoken(message.text,50):'';
+          if(this.enqueue({id:s.completion_event_id,topic:s.id+':completed:'+s.completion_event_id,session_id:s.id,kind:'completed',text:`${spoken(s.title,24)}本轮已结束。${reply?'助手回复：'+reply:''}`,at,delay:20000}))this.set('completion-start:'+s.completion_event_id,s.started_at?Date.parse(s.started_at):at);
         }
       }
       this.set('session:'+s.id,{completion:s.completion_event_id,state:s.state,started:s.started_at});
@@ -79,7 +80,7 @@ export class VoiceBroadcasts {
     for(const agent of collector.current().agents)for(const quota of agent.quota){
       const key='quota:'+agent.id+':'+quota.window_minutes,oldValue=this.get(key),old=oldValue?JSON.parse(oldValue) as {reset:string|null;used:number;at:string}:null;
       const used=quota.used_ratio.value,at=quota.used_ratio.observed_at;if(quota.health==='stale'||quota.used_ratio.quality!=='confirmed'||used===null||!at||now-Date.parse(at)>120000||Date.parse(at)>now+60000)continue;
-      if(this.observed&&old&&Date.parse(at)>Date.parse(old.at)&&used<old.used&&quota.resets_at!==old.reset&&old.reset&&Date.parse(old.reset)<=Date.parse(at)&&quota.resets_at&&Date.parse(quota.resets_at)>Date.parse(at))this.enqueue({id:digest(key+':'+quota.resets_at),topic:key,kind:'quota',text:`${agent.name}的${quota.window_minutes%1440===0?quota.window_minutes/1440+'天':quota.window_minutes/60+'小时'}额度已重置。`,at:Date.parse(at)});
+      if(this.observed&&old&&Date.parse(at)>Date.parse(old.at)&&old.used-used>=0.05&&quota.resets_at!==old.reset&&quota.resets_at&&Date.parse(quota.resets_at)>Date.parse(at))this.enqueue({id:digest(key+':'+quota.resets_at),topic:key,kind:'quota',text:`${agent.name}的${quota.window_minutes%1440===0?quota.window_minutes/1440+'天':quota.window_minutes/60+'小时'}额度已恢复。`,at:Date.parse(at)});
       this.set(key,{reset:quota.resets_at,used,at});
     }
     // The first snapshot is a baseline; do not replay historical tool/request events.
@@ -87,13 +88,14 @@ export class VoiceBroadcasts {
     if(this.observed)for(const s of signals){const session=sessions.find(v=>v.id===s.session_id);if(session?.observation_health==='fresh')this.signal(s,session.title);}
     else for(const s of signals)this.db.query('INSERT OR IGNORE INTO voice_seen VALUES(?)').run(s.session_id+':'+s.id+':'+s.kind);
     this.observed=true;this.expire();
-    const ids=new Set(sessions.map(s=>s.id));for(const n of this.list())if(n.session_id&&!ids.has(n.session_id)&&['queued','ready'].includes(n.state))this.cancel(n.topic);
+    const ids=new Set(sessions.map(s=>s.id));for(const n of this.list())if(n.session_id&&!ids.has(n.session_id)&&['queued','preparing','ready','playing'].includes(n.state))this.cancel(n.topic);
   }
   important(change:ImportantChange,sessionId?:string){if(!['milestone','completed','blocker','decision','resolved'].includes(change.kind))return;
-    if(change.source_at<Number(this.get('enabled_since')??this.clock())-120000)return;
+    if(['milestone','completed'].includes(change.kind)&&(!change.stage||change.stage==='planned'))return;
+    if(!this.observed||change.source_at<Number(this.get('enabled_since')??this.clock())-120000)return;
     if(sessionId&&['milestone','completed'].includes(change.kind)&&this.enrichCompletion(sessionId,change.text,change.source_at))return;
     if(change.kind==='resolved')this.cancel(change.project_id+':'+change.key);
-    this.enqueue({id:digest([change.project_id,change.key,change.kind,change.source_at].join(':')),topic:change.project_id+':'+change.key,session_id:sessionId,kind:['blocker','decision'].includes(change.kind)?'error':'milestone',text:'项目更新：'+change.text,delay:20000});}
+    this.enqueue({id:digest([change.project_id,change.key,change.kind,change.source_at].join(':')),topic:change.project_id+':'+change.key,session_id:sessionId,kind:change.kind==='blocker'||change.requires_user_action?'error':'milestone',text:'项目消息，'+(change.stage==='accepted'?'已验收：':change.stage==='verified'?'验证结果：':'来源报告：')+change.text,at:change.source_at,delay:20000});}
   enrichCompletion(sessionId:string,text:string,sourceAt:number){
     const row=this.db.query<VoiceNotice,[string]>("SELECT * FROM voice_notices WHERE session_id=? AND kind='completed' AND state='queued' ORDER BY created_at DESC LIMIT 1").get(sessionId);
     const started=row?Number(this.get('completion-start:'+row.id)??row.created_at):0;
@@ -101,13 +103,17 @@ export class VoiceBroadcasts {
   }
   expire(){this.db.query("UPDATE voice_notices SET state='cancelled' WHERE expires_at<=? AND state IN ('queued','ready','preparing')").run(this.clock());this.db.exec("DELETE FROM voice_audio WHERE id NOT IN (SELECT audio_id FROM voice_notices WHERE audio_id IS NOT NULL AND state IN ('ready','playing') UNION SELECT audio_id FROM (SELECT audio_id FROM voice_notices WHERE state='played' AND audio_id IS NOT NULL ORDER BY created_at DESC LIMIT 8))");}
   list(){return this.db.query<VoiceNotice,[]>("SELECT * FROM voice_notices ORDER BY created_at DESC LIMIT 80").all();}
-  current(){this.expire();return{schema_version:1,configuration:this.configuration(),target:'device',device_audio_ready:false,status:!this.config.enabled?'disabled':this.config.muted?'muted':this.quiet()?'quiet':'awaiting_device_audio',notices:this.list(),tts_available:!!this.tts&&(this.tts.available?.()??true)};}
+  invalidatePrepared(){this.abort?.abort();for(const row of this.list())if(['ready','preparing'].includes(row.state)&&row.topic!==this.deliveryTopic)this.db.query("UPDATE voice_notices SET state='queued',audio_id=NULL WHERE id=?").run(row.id);this.set('retry_after',0);}
+  setDeviceReady(value:boolean){this.deviceReady=value;if(this.quiet()){this.abort?.abort();this.deliveryAbort?.abort();}}
+  stop(){this.abort?.abort();this.deliveryAbort?.abort();for(const row of this.list())if(['queued','preparing','ready'].includes(row.state))this.cancel(row.topic);}
+  replay(){const row=this.list().find(n=>['played','unknown'].includes(n.state));if(!row)return false;return this.enqueue({id:crypto.randomUUID(),topic:'replay',kind:row.kind,text:row.text,manual:true});}
+  current(){this.expire();return{schema_version:1,configuration:this.configuration(),target:'device',audio_links:this.audioLinks,device_audio_ready:this.deviceReady,status:!this.config.enabled?'disabled':this.config.muted?'muted':this.quiet()?'quiet':this.deviceReady?'ready':'awaiting_device_audio',notices:this.list(),tts_available:!!this.tts&&(this.tts.available?.()??true)};}
   async prepareNext(force=false){
     if(this.closed||this.busy||!this.config.enabled||this.config.muted||this.quiet()||!this.tts||this.tts.available?.()===false)return null;this.expire();
     if(this.db.query<{n:number},[]>("SELECT COUNT(*) AS n FROM voice_notices WHERE state='ready'").get()!.n>=8)return null;
-    const now=this.clock(),last=Number(this.get('last_prepared')??0);if(!force&&now-last<15000)return null;
+    const now=this.clock(),last=Number(this.get('retry_after')??0);if(!force&&now<last)return null;
     const notice=this.db.query<VoiceNotice,[number]>("SELECT * FROM voice_notices WHERE state='queued' AND not_before<=? ORDER BY priority,created_at LIMIT 1").get(now);if(!notice)return null;
-    this.busy=true;const controller=new AbortController();this.abort=controller;
+    this.busy=true;this.preparingTopic=notice.topic;const controller=new AbortController();this.abort=controller;
     this.db.query("UPDATE voice_notices SET state='preparing' WHERE id=?").run(notice.id);
     try{
       const pcm=await this.tts.synthesize(notice.text,this.config.voice,controller.signal);
@@ -117,24 +123,25 @@ export class VoiceBroadcasts {
       if(fresh.state!=='preparing'||fresh.expires_at<=this.clock())return null;
       const id=digest(Buffer.from(pcm).toString('base64')),info:VoiceAudio={id,codec:'pcm_s16le',sample_rate:16000,channels:1,bytes:pcm.byteLength,sha256:Bun.CryptoHasher.hash('sha256',pcm,'hex')};
       this.db.transaction(()=>{this.db.query('INSERT OR IGNORE INTO voice_audio VALUES(?,?,?)').run(id,pcm,JSON.stringify(info));this.db.query("UPDATE voice_notices SET state='ready',audio_id=? WHERE id=?").run(id,notice.id);this.set('last_prepared',this.clock());})();return{notice_id:notice.id,audio:info};
-    }catch{if(!this.closed)this.db.query("UPDATE voice_notices SET state='failed' WHERE id=? AND state='preparing'").run(notice.id);return null;}
-    finally{if(!this.closed)this.db.query("UPDATE voice_notices SET state='cancelled' WHERE id=? AND state='preparing'").run(notice.id);this.busy=false;this.abort=null;}
+    }catch{this.set('retry_after',this.clock()+60000);if(!this.closed)this.db.query("UPDATE voice_notices SET state=? WHERE id=? AND state='preparing'").run(controller.signal.aborted?'cancelled':'failed',notice.id);return null;}
+    finally{if(!this.closed)this.db.query("UPDATE voice_notices SET state='cancelled' WHERE id=? AND state='preparing'").run(notice.id);this.busy=false;this.abort=null;this.preparingTopic=null;}
   }
   audio(id:string){const row=this.db.query<{data:Uint8Array;info:string},[string]>('SELECT * FROM voice_audio WHERE id=?').get(id);return row?{data:new Uint8Array(row.data),info:JSON.parse(row.info) as VoiceAudio}:null;}
   receipt(id:string,state:'playing'|'played'|'unknown'){
     const row=this.db.query<VoiceNotice,[string]>('SELECT * FROM voice_notices WHERE id=?').get(id);if(!row||!((row.state==='ready'&&state==='playing')||(row.state==='playing'&&['played','unknown'].includes(state))))return false;
-    this.db.query('UPDATE voice_notices SET state=? WHERE id=?').run(state,id);return true;
+    this.db.query('UPDATE voice_notices SET state=? WHERE id=?').run(state,id);if(state==='played'||state==='unknown')this.set('last_finished',this.clock());return true;
   }
   /** Called only by a link adapter after authenticated device capability negotiation.
-   * The current board does not advertise audio; production links do not call this yet. */
-  async deliverTo(port:DeviceAudioPort,signal:AbortSignal){
-    this.expire();if(this.delivering||this.closed||!this.config.enabled||this.config.muted||this.quiet())return false;
+   * A started or uncertain delivery is never automatically replayed. */
+  async deliverTo(port:DeviceAudioPort,signal:AbortSignal,cancelPort?:()=>DeviceAudioPort|undefined){
+    this.expire();if(this.delivering||this.closed||!this.config.enabled||this.config.muted||this.quiet()||this.clock()-Number(this.get('last_finished')??0)<15000)return false;
     const row=this.db.query<VoiceNotice,[]>("SELECT * FROM voice_notices WHERE state='ready' ORDER BY priority,created_at LIMIT 1").get();
     if(!row?.audio_id)return false;const audio=this.audio(row.audio_id);if(!audio)return false;
     this.delivering=true;this.deliveryTopic=row.topic;
     const controller=new AbortController();this.deliveryAbort=controller;const abort=()=>controller.abort();signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
-    try{await transmitAudio(port,row.id,audio.info,audio.data,row.expires_at,controller.signal,state=>this.receipt(row.id,state),this.clock);return true;}
-    catch{return false;}finally{signal.removeEventListener('abort',abort);this.deliveryAbort=null;this.deliveryTopic=null;this.delivering=false;}
+    const routed:DeviceAudioPort={device_id:port.device_id,audio_protocol:1,chunk_bytes:port.chunk_bytes,window_size:port.window_size,exchange:(packet,signal,onPlayback)=>(packet.kind==='audio_cancel'?(cancelPort?.()??port):port).exchange(packet,signal,onPlayback)};
+    try{await transmitAudio(routed,row.id,audio.info,audio.data,row.expires_at,controller.signal,state=>this.receipt(row.id,state),this.clock);return true;}
+    catch{this.db.query("UPDATE voice_notices SET state='unknown' WHERE id=? AND state='ready'").run(row.id);this.set('last_finished',this.clock());return false;}finally{signal.removeEventListener('abort',abort);this.deliveryAbort=null;this.deliveryTopic=null;this.delivering=false;}
   }
   async close(){this.closed=true;this.abort?.abort();this.deliveryAbort?.abort();while(this.busy||this.delivering)await new Promise(r=>setTimeout(r,5));this.db.close();}
 }

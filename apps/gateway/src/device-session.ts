@@ -7,13 +7,14 @@ export function clipDeviceText(text:string) {
   if(Buffer.byteLength(text)<4096)return text;
   return new TextDecoder("utf-8",{fatal:false}).decode(Buffer.from(text).subarray(0,4000)).replace(/\uFFFD$/u,"")+"\n…（长消息已截短）";
 }
-const selections=new WeakMap<Collector,{id:string|null;boot:string;counter:number}>();
+const selections=new WeakMap<Collector,{id:string|null;boot:string;counter:number;applied?:{id:number;transport:string}}>();
 export class DeviceSession {
  lastCommand:{kind:string;status:"accepted"|"busy"|"failed";code:string|null;observed_at:string}|null=null;
- readonly boot:string; private selection:{id:string|null;boot:string;counter:number}; private pending=new Map<number,DisplayCommand|undefined>(); public error:string|null=null; private lastAck=0;
- constructor(private collector:Collector,private settings:SettingsStore,private assistant?:Assistant){let selected=selections.get(collector);if(!selected){selected={id:null,boot:crypto.randomUUID(),counter:0};selections.set(collector,selected);}this.selection=selected;this.boot=selected.boot;}
+ readonly boot:string; private selection:{id:string|null;boot:string;counter:number;applied?:{id:number;transport:string}}; private pending=new Map<number,DisplayCommand|undefined>(); public error:string|null=null; private lastAck=0;
+ constructor(private collector:Collector,private settings:SettingsStore,private assistant?:Assistant,private transport="unknown"){let selected=selections.get(collector);if(!selected){selected={id:null,boot:crypto.randomUUID(),counter:0};selections.set(collector,selected);}this.selection=selected;this.boot=selected.boot;}
+ ownsDisplay(){return this.selection.applied?.transport===this.transport;}
  acknowledge(p:Record<string,unknown>):number|null {
-  if(p.gateway_boot_id===this.boot&&Number.isSafeInteger(p.id)&&Number(p.id)>this.lastAck&&this.pending.has(Number(p.id))){const display=this.pending.get(Number(p.id));if(display)this.settings.display.acknowledge(display,p.display);this.lastAck=Number(p.id);for(const id of this.pending.keys())if(id<=this.lastAck)this.pending.delete(id);return this.lastAck;}return null;
+  if(p.gateway_boot_id===this.boot&&Number.isSafeInteger(p.id)&&Number(p.id)>this.lastAck&&this.pending.has(Number(p.id))){const display=this.pending.get(Number(p.id));if(display)this.settings.display.acknowledge(display,p.display);this.lastAck=Number(p.id);if(this.lastAck>(this.selection.applied?.id??0))this.selection.applied={id:this.lastAck,transport:this.transport};for(const id of this.pending.keys())if(id<=this.lastAck)this.pending.delete(id);return this.lastAck;}return null;
  }
  command(p:Record<string,unknown>):boolean {
   const kind=String(p.kind);

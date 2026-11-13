@@ -4,6 +4,7 @@ struct VoiceConfiguration: Codable {
     var enabled = false, muted = false, quiet_enabled = false
     var quiet_start = 1320, quiet_end = 480
     var provider = "system", voice = ""
+    var input = true, error = true, completed = true, milestone = true, quota = true
 }
 struct VoiceNotice: Codable, Identifiable {
     var id: String, kind: String, text: String, state: String
@@ -27,8 +28,8 @@ struct VoicePanel: View {
         VStack(alignment:.leading,spacing:20) {
             card("语音播报") {
                 Label("声音将从桌面监视器播放",systemImage:"hifispeaker.fill").font(.headline)
-                Text("Mac 负责整理消息和生成音频。当前可先准备待播消息、测试音频生成；设备播放正在接入，接上扬声器后再验收声音。").foregroundStyle(model.theme.muted)
-                Toggle("整理待播消息",isOn:$config.enabled).accessibilityIdentifier("voice-enabled")
+                Text("Mac 负责整理消息和生成音频。重要消息会按优先级播报；设备断开时保留未过期的消息，已经开始但未确认完成的播报不会自动重放。").foregroundStyle(model.theme.muted)
+                Toggle("启用语音播报",isOn:$config.enabled).accessibilityIdentifier("voice-enabled")
                 Toggle("静音",isOn:$config.muted).disabled(!config.enabled)
                 Toggle("启用安静时段",isOn:$config.quiet_enabled).disabled(!config.enabled)
                 if config.quiet_enabled {
@@ -39,10 +40,19 @@ struct VoicePanel: View {
                 }
                 HStack {
                     Button("保存播报设置") { save() }.accessibilityIdentifier("voice-save")
-                    Button("生成测试音频") { testAudio() }.disabled(!config.enabled || config.muted || feed?.tts_available != true).accessibilityIdentifier("voice-test")
+                    Button("测试设备播报") { testAudio() }.disabled(!config.enabled || config.muted || feed?.tts_available != true).accessibilityIdentifier("voice-test")
                 }
                 Text("语音来源在“API 设置”中配置。语音生成关闭时只整理消息，不调用 TTS；音频不会在 Mac 自动播放。").font(.caption).foregroundStyle(model.theme.muted)
                 if !notice.isEmpty { Text(notice).foregroundStyle(model.theme.accent).accessibilityIdentifier("voice-notice") }
+            }
+            card("播报内容") {
+                Toggle("等待回答或审批",isOn:$config.input)
+                Toggle("重复错误与需要处理的阻塞",isOn:$config.error)
+                Toggle("对话本轮结束及简要结果",isOn:$config.completed)
+                Toggle("重要实验进展与决定",isOn:$config.milestone)
+                Toggle("额度恢复",isOn:$config.quota)
+                Text(feed?.device_audio_ready == true ? "监视器音频通道已就绪。音量在屏幕右下角“工具 → 声音与音量”调节。" : "等待支持语音的监视器连接。设备支持音频不代表已检测到实体扬声器。").font(.caption).foregroundStyle(model.theme.muted)
+                HStack { Button("停止播报") { control("stop") };Button("重播最近一条") { control("replay") }.disabled(!config.enabled || config.muted) }
             }
             card("播报规则") {
                 Label("优先提醒需要你回答、审批或处理的事项",systemImage:"exclamationmark.bubble")
@@ -81,15 +91,18 @@ struct VoicePanel: View {
     private func save() {
         saving=true
         Task { defer { saving=false };do {
-            _=try await model.configurationRequest("api/v1/voice/config",body:["enabled":config.enabled,"muted":config.muted,"quiet_enabled":config.quiet_enabled,"quiet_start":config.quiet_start,"quiet_end":config.quiet_end])
+            _=try await model.configurationRequest("api/v1/voice/config",body:["enabled":config.enabled,"muted":config.muted,"quiet_enabled":config.quiet_enabled,"quiet_start":config.quiet_start,"quiet_end":config.quiet_end,"input":config.input,"error":config.error,"completed":config.completed,"milestone":config.milestone,"quota":config.quota])
             notice="播报设置已保存。";await refresh()
         } catch { notice="设置未保存，请稍后重试。" } }
+    }
+    private func control(_ action:String) {
+        Task { do { _=try await model.configurationRequest("api/v1/voice/"+action,body:[:],method:"POST");await refresh() } catch { notice="操作未完成，请检查设备连接。" } }
     }
     private func testAudio() {
         saving=true
         Task { defer { saving=false };do {
             _=try await model.configurationRequest("api/v1/voice/test",body:[:],method:"POST")
-            notice="正在生成测试音频，结果会显示在下方。";await refresh()
+            notice="正在生成并发送到监视器，播放回执会显示在下方。";await refresh()
         } catch { notice="请先保存并开启整理；静音或安静时段内暂停生成。" } }
     }
 }

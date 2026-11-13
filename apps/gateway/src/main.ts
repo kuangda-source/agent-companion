@@ -49,17 +49,20 @@ const lan=mock?undefined:new LanLink(runtime,state,settings,assistant);
 const credentials=mock?undefined:new CredentialStore(runtime,service=>{if(service==="deepseek")state.resetBalance();});
 const gateway = mock ? createMockGateway(port, process.argv.includes("--animate"),phase,settings) : createLiveGateway(state, token!, port,2000,settings,assistant,remote,lan,credentials,voice,speech);
 const usb=mock?undefined:new USBLink(runtime,state,settings,assistant);
+const availableAudio=()=>[usb?.audio,lan?.audio,remote?.audio].find(p=>p?.ready());
+const audioTimer=voice?setInterval(()=>{const port=availableAudio();voice.setAudioLinks({usb:usb?.audio.status(),wifi:lan?.audio.status(),relay:remote?.audio.status()});voice.setDeviceReady(!!port);if(port)void voice.deliverTo(port,new AbortController().signal,availableAudio);},250):undefined;
 if (token) { await writeFile(tokenFile, token, { mode: 0o600 }); await chmod(tokenFile, 0o600); }
 console.log(`${mock ? "MOCK" : "LIVE"} Gateway: ${gateway.server.url}api/v1/health`);
 console.log(mock ? "Explicit simulation; no real records." : "Read-only local sessions; conversation endpoints require the local runtime token.");
 async function stop() {
+  clearInterval(audioTimer);
+  gateway.close();
+  await assistant?.shutdown();
+  await voice?.close(); // Dispatch cancellation while the authenticated device links are still open.
   usb?.close();
   remote?.close();
   lan?.close();
-  gateway.close();
   await state.shutdownQuota();
-  await assistant?.shutdown();
-  await voice?.close();
   if (token && await Bun.file(tokenFile).text().catch(() => "") === token) await rm(tokenFile, { force: true });
   process.exit(0);
 }

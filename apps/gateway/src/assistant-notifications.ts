@@ -4,7 +4,7 @@ import { object,array } from "./adapters/common.ts";
 
 export type ChangeKind="decision"|"blocker"|"milestone"|"completed"|"resolved";
 export interface AttentionUpdate {key:string;project_id:string;status:"open"|"resolved";text:string;source_ids:string[];source_at:number}
-export interface ImportantChange {key:string;project_id:string;kind:ChangeKind;text:string;source_ids:string[];source_at:number}
+export interface ImportantChange {key:string;project_id:string;kind:ChangeKind;text:string;source_ids:string[];source_at:number;requires_user_action?:boolean;stage?:"planned"|"reported"|"verified"|"accepted"}
 export interface AttentionRecord {id:string;key:string;project_id:string;status:"open"|"resolved";text:string;source_ids:string[];cycle:number;updated_at:string}
 interface Row extends Omit<AttentionRecord,"source_ids"> {refs:string;source_at:number}
 /** Stable topic identities and notification receipts live in the app, never SDK memory. */
@@ -39,7 +39,8 @@ export class AssistantNotifications {
     const fresh=(item:{source_at:number;source_ids:string[]})=>item.source_at>0&&now-item.source_at<=86400_000&&item.source_at<=now+60000&&item.source_ids.some(id=>changedEvidence.has(id));
     const notify=(item:ImportantChange,cycle=0)=>{
       if(!fresh(item))return;
-      const id=digest([item.project_id,item.key,item.kind,cycle].join(":"));
+      const revision=["milestone","completed"].includes(item.kind)?[...item.source_ids].sort().join(":"):"";
+      const id=digest([item.project_id,item.key,item.kind,cycle,revision].join(":"));
       this.db.query("INSERT OR REPLACE INTO assistant_change_topics VALUES(?,?,?,?,?,?,?)").run(id,item.project_id,item.key,item.kind,item.text,JSON.stringify(item.source_ids),timestamp);
       const inserted=this.db.query("INSERT OR IGNORE INTO assistant_notice_keys VALUES(?,?)").run(id,timestamp);
       if(!inserted.changes)return;
@@ -58,7 +59,7 @@ export class AssistantNotifications {
       if(previous&&previous.status!==item.status&&!fresh(item))continue;
       const cycle=(previous?.cycle??0)+(previous?.status==="resolved"&&item.status==="open"?1:0);
       this.db.query("INSERT OR REPLACE INTO assistant_attention VALUES(?,?,?,?,?,?,?,?,?)").run(digest(item.project_id+":"+item.key),item.key,item.project_id,item.status,item.text,JSON.stringify(item.source_ids),cycle,timestamp,item.source_at);
-      if(item.status==="open"&&(!previous||previous.status==="resolved"))notify({...item,kind:"decision"},cycle);
+      if(item.status==="open"&&(!previous||previous.status==="resolved"))notify({...item,kind:"decision",requires_user_action:true},cycle);
       if(item.status==="resolved"&&previous?.status==="open")notify({...item,kind:"resolved"},cycle);
     }
     for(const change of changes){

@@ -77,3 +77,33 @@ test('answer arriving during transfer aborts stale playback before audio_end',as
  expect(await f.voice.deliverTo(port,new AbortController().signal)).toBe(false);expect(ends).toBe(0);expect(f.voice.list()[0].state).toBe('cancelled');
  }finally{await f.close();}
 });
+
+test('early official quota recovery is announced without waiting for estimated reset; categories can suppress it',async()=>{
+ const f=fixture(),mock=new MockState(),snapshot=mock.current();snapshot.agents=snapshot.agents.filter(a=>a.id==='codex');const agent=snapshot.agents[0],reset=f.now()+86400000;
+ const quota=(used:number,r:number)=>({window_minutes:10080,health:'fresh' as const,resets_at:new Date(r).toISOString(),used_ratio:{value:used,quality:'confirmed' as const,source:'fixture',observed_at:new Date(f.now()).toISOString()}});
+ const collector={current:()=>snapshot,refresh:()=>mock.refresh(),detail:()=>undefined};try{f.voice.update({enabled:true});agent.quota=[quota(.9,reset)];f.voice.observe(collector);f.advance(1000);agent.quota=[quota(.1,reset+86400000)];f.voice.observe(collector);expect(f.voice.list()).toHaveLength(1);expect(f.voice.list()[0].text).toContain('额度已恢复');f.voice.update({quota:false});expect(f.voice.list()[0].state).toBe('cancelled');}finally{await f.close();}
+});
+test('cooldown follows device completion, uncertain transfer is not automatically repeated',async()=>{
+ const f=fixture();try{f.voice.update({enabled:true});for(const id of ['a','b']){f.voice.enqueue({id,topic:id,kind:'completed',text:'fixture'});await f.voice.prepareNext(true);}
+ let ends=0;const port:import('../../packages/protocol/src/audio.ts').DeviceAudioPort={device_id:'fixture',audio_protocol:1,exchange:async(p)=>{if(p.kind==='audio_end')ends++;return{delivery_id:p.delivery_id,state:p.kind==='audio_start'?'accepted':p.kind==='audio_chunk'?'chunk':'played',...(p.kind==='audio_chunk'?{next_offset:p.offset+p.data.length}:{})};}};
+ expect(await f.voice.deliverTo(port,new AbortController().signal)).toBe(true);expect(await f.voice.deliverTo(port,new AbortController().signal)).toBe(false);expect(ends).toBe(1);f.advance(15000);expect(await f.voice.deliverTo(port,new AbortController().signal)).toBe(true);
+ }finally{await f.close();}
+});
+
+test('ordinary decisions are normal priority, manual test bypasses backlog and provider changes refresh unplayed audio',async()=>{
+ const f=fixture(),mock=new MockState();try{f.voice.update({enabled:true});f.voice.observe(mock);f.voice.important({key:'decision',project_id:'fixture',kind:'decision',text:'一项新的重要决定',source_ids:['fixture'],source_at:f.now()});expect(f.voice.list()[0].priority).toBe(1);
+ f.voice.enqueue({id:'test-priority',topic:'test',kind:'milestone',manual:true,text:'固定测试'});await f.voice.prepareNext(true);expect(f.voice.list().find(n=>n.id==='test-priority')?.state).toBe('ready');f.voice.invalidatePrepared();expect(f.voice.list().find(n=>n.id==='test-priority')?.state).toBe('queued');
+ }finally{await f.close();}
+});
+
+test('important experimental voice requires a non-planned validated fact and preserves its evidence stage',async()=>{
+ const f=fixture();try{f.voice.update({enabled:true});f.voice.observe(new MockState());const base={key:'experiment',project_id:'fixture',kind:'milestone' as const,text:'新的实验结果',source_ids:['fixture'],source_at:f.now()};f.voice.important(base);f.voice.important({...base,stage:'planned'});expect(f.voice.list()).toHaveLength(0);f.voice.important({...base,stage:'reported'});expect(f.voice.list()[0].text).toContain('来源报告');}finally{await f.close();}
+});
+
+test('cancellation switches to the paired screen new active transport after a view handover',async()=>{
+ const f=fixture();try{f.voice.update({enabled:true});f.voice.enqueue({id:'cancel-route',topic:'route',kind:'input',text:'固定测试'});await f.voice.prepareNext(true);let cancelled=0;
+ const active:import('../../packages/protocol/src/audio.ts').DeviceAudioPort={device_id:'paired-screen',audio_protocol:1,exchange:async p=>{expect(p.kind).toBe('audio_cancel');cancelled++;return{delivery_id:p.delivery_id,state:'rejected'};}};
+ const original:import('../../packages/protocol/src/audio.ts').DeviceAudioPort={device_id:'paired-screen',audio_protocol:1,exchange:async p=>{if(p.kind==='audio_start')return{delivery_id:p.delivery_id,state:'accepted'};if(p.kind==='audio_chunk'){f.voice.cancel('route');return{delivery_id:p.delivery_id,state:'chunk',next_offset:p.offset+p.data.length};}throw new Error('old link unavailable');}};
+ expect(await f.voice.deliverTo(original,new AbortController().signal,()=>active)).toBe(false);expect(cancelled).toBe(1);
+ }finally{await f.close();}
+});

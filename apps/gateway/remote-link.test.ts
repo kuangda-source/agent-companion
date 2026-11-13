@@ -61,3 +61,11 @@ test("relay sends periodic presence without extending a silent client's lease",a
   now+=15000;const state=await(await fetch(base+"/v1/status",{headers:{Authorization:"Bearer "+mac}})).json() as Record<string,unknown>;expect(state.device_connected).toBe(false);
  }finally{ws?.close();r.close();}
 });
+
+test('relay forwards windowed audio and independent playback receipts without consuming view rate budget',async()=>{
+ const r=createRelay({mac_sha256:digest(mac),device_sha256:digest(device)},0),url=r.server.url.toString().replace('http:','ws:').replace(/\/$/,'')+'/v1/link';let a:WebSocket|undefined,b:WebSocket|undefined;
+ try{a=await opened(url,mac);b=await opened(url,device);const boot=crypto.randomUUID(),base={delivery_id:'fixture',gateway_boot_id:boot,sent_at:Date.now()/1000};
+ for(let i=0;i<12;i++){const next=message(b,p=>p.kind==='audio_chunk');a.send(JSON.stringify({...base,kind:'audio_chunk',seq:i,offset:i*2,crc32:0,data:'AAA='}));expect((await next).seq).toBe(i);}
+ const next=message(a,p=>p.kind==='audio_reply');b.send(JSON.stringify({kind:'audio_reply',delivery_id:'fixture',state:'played',next_offset:24}));expect((await next).state).toBe('played');expect(a.readyState).toBe(WebSocket.OPEN);
+ }finally{a?.close();b?.close();r.close();}
+});

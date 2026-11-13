@@ -383,7 +383,9 @@ export class Assistant {
       this.db.query("INSERT OR REPLACE INTO meta VALUES('selection',?)").run(selection);
       const notices=this.notifications.reconcile(attentionUpdates,changes,changedEvidence,now);
       for(const note of notes){const latest=facts.get(note.session_id)?.latest_results.filter(f=>f.stage!=="planned").at(-1);if(latest?.observed_at){const data={session_id:note.session_id,text:(latest.stage==="reported"?"来源报告：":"")+latest.text,source_at:Date.parse(latest.observed_at)};this.db.query("INSERT OR IGNORE INTO assistant_voice_outbox(id,kind,data) VALUES(?,'result',?)").run(digest(note.session_id+JSON.stringify(latest)),JSON.stringify(data));}}
-      for(const change of notices){const data={change,session_id:allowed.get(change.source_ids[0]??"")?.session_id};this.db.query("INSERT OR IGNORE INTO assistant_voice_outbox(id,kind,data) VALUES(?,'change',?)").run(digest(JSON.stringify(change)),JSON.stringify(data));}
+      for(const change of notices){const session_id=allowed.get(change.source_ids[0]??"")?.session_id,result=session_id?facts.get(session_id)?.latest_results.findLast(f=>f.stage!=="planned"&&f.source_ids.some(id=>change.source_ids.includes(id))):undefined;
+        const voiceChange:ImportantChange=result&&["milestone","completed"].includes(change.kind)?{...change,text:result.text,stage:result.stage,source_at:Date.parse(result.observed_at??"")||change.source_at}:change;
+        const data={change:voiceChange,session_id};this.db.query("INSERT OR IGNORE INTO assistant_voice_outbox(id,kind,data) VALUES(?,'change',?)").run(digest(JSON.stringify(change)),JSON.stringify(data));}
       const source_ids=[...new Set([...projects,...attention].flatMap(p=>p.source_ids))];
       const body=["项目简报（据公开对话）",...projects.map(p=>p.text),attention.length?"需要关注":"暂无新增关注事项",...attention.map(a=>"• "+a.text),`本轮：${coverage.analyzed}个会话；监控范围：近${coverage.recent_days}天 ${coverage.read}个会话公开节选。${pendingCount>updates.length?`另有${pendingCount-updates.length}个会话等待后续批次。`:""}来源说法未经独立验收。`].join("\n\n");
       const shouldPublish=manual||notices.length>0;

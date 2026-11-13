@@ -1,8 +1,9 @@
+import {validAudioPacket,validAudioReply} from '../../packages/protocol/src/audio-wire.ts';
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 export const MAX_VIEW = 192 * 1024;
 type Role = "mac" | "device";
-interface Peer { role: Role; count: number; window: number; seen: number }
+interface Peer { role: Role; count: number; window: number; seen: number; audioCount:number; audioBytes:number }
 export interface RelayConfig { mac_sha256: string; device_sha256: string }
 export function digest(value: string) { return createHash("sha256").update(value).digest("hex"); }
 export function createRelay(config: RelayConfig, port = 18736, options: { now?:()=>number; leaseMs?:number } = {}) {
@@ -36,7 +37,7 @@ export function createRelay(config: RelayConfig, port = 18736, options: { now?:(
       if (u.pathname === "/v1/status" && req.method === "GET" && role === "mac") return Response.json({ mac_connected: peers.has("mac"), device_connected: peers.has("device"), forwarded: forwards,heartbeats, mac_age_ms:peers.has("mac")?clock()-peers.get("mac")!.data.seen:null,device_age_ms:peers.has("device")?clock()-peers.get("device")!.data.seen:null,last_closed:lastClosed }, { headers: { "Cache-Control": "no-store" } });
       if (u.pathname !== "/v1/link" || req.method !== "GET") return new Response("Not found", { status: 404 });
       if (peers.has(role)) return new Response("Role already connected", { status: 409 });
-      if (server.upgrade(req, { data: { role, count: 0, window: clock(), seen:clock() } })) return;
+      if (server.upgrade(req, { data: { role, count: 0, window: clock(), seen:clock(),audioCount:0,audioBytes:0 } })) return;
       return new Response("WebSocket required", { status: 426 });
     },
     websocket: {
@@ -50,18 +51,20 @@ export function createRelay(config: RelayConfig, port = 18736, options: { now?:(
         if (peers.get(ws.data.role) !== ws) return;
         const now = clock();
         ws.data.seen=now;
-        if (now - ws.data.window > 1000) { ws.data.window = now; ws.data.count = 0; }
-        if (++ws.data.count > 8) { ws.close(1008, "rate limit"); return; }
+        if (now - ws.data.window > 1000) { ws.data.window = now; ws.data.count = 0;ws.data.audioCount=0;ws.data.audioBytes=0; }
         const text = typeof raw === "string" ? raw : raw.toString();
         let p: Record<string, unknown>;
         try { p = JSON.parse(text); if (!p || Array.isArray(p) || typeof p !== "object") throw 0; } catch { ws.close(1007, "JSON required"); return; }
+        const isAudio=ws.data.role==='mac'?validAudioPacket(p):validAudioReply(p);
+        if(isAudio){if(++ws.data.audioCount>40||(ws.data.audioBytes+=Buffer.byteLength(text))>768*1024){ws.close(1008,'audio rate limit');return;}}
+        else if(++ws.data.count>8){ws.close(1008,'rate limit');return;}
         if(p.kind==="heartbeat"&&Number.isSafeInteger(p.id)&&Number(p.id)>=0){heartbeats[ws.data.role]++;ws.send(JSON.stringify({...peerState(),kind:"heartbeat",id:p.id}));return;}
         let valid = false;
         if (ws.data.role === "mac") {
           const state = p.state as Record<string, unknown> | undefined;
-          valid = typeof p.gateway_boot_id === "string" && /^[a-f0-9-]{36}$/.test(p.gateway_boot_id) && Number.isSafeInteger(p.id) && Number(p.id) > 0 && typeof p.sent_at === "number" && Math.abs(Date.now() / 1000 - p.sent_at) < 15 && state?.data_source === "live" && p.capture === undefined;
+          valid = isAudio || typeof p.gateway_boot_id === "string" && /^[a-f0-9-]{36}$/.test(p.gateway_boot_id) && Number.isSafeInteger(p.id) && Number(p.id) > 0 && typeof p.sent_at === "number" && Math.abs(Date.now() / 1000 - p.sent_at) < 15 && state?.data_source === "live" && p.capture === undefined;
         } else {
-          valid = (p.kind === "theme" && ["neon", "comic", "neumorphism"].includes(String(p.value))) ||
+          valid = isAudio || (p.kind === "theme" && ["neon", "comic", "neumorphism"].includes(String(p.value))) ||
             (p.kind === "detail" && typeof p.id === "string" && Buffer.byteLength(p.id) < 160) || p.kind === "assistant_refresh" ||
             ["disconnected","snapshot_rejected","frame_timeout","frame_crc_error","frame_json_error","provision_rejected"].includes(String(p.kind)) ||
             (p.kind === "applied" && Number.isSafeInteger(p.id) && typeof p.gateway_boot_id === "string");

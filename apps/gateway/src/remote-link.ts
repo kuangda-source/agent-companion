@@ -1,3 +1,4 @@
+import {LinkAudio} from './link-audio.ts';
 /** Outbound one-Mac/one-screen link. Agent and model credentials never leave Gateway. */
 import { chmodSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import type { Collector } from "./state.ts";
@@ -26,7 +27,7 @@ export class RemoteLink {
   private socket:WebSocket|null=null;
   private stopped=false;
   private connecting=false;
-  private feed:DeviceSession;
+  readonly audio:LinkAudio;private feed:DeviceSession;
   private nextConnect=0;
   private failures=0;
   private activeConfig="";
@@ -37,7 +38,7 @@ export class RemoteLink {
   private clock:()=>number;
   private statusValue={relay_url:null as string|null,configured:false,relay_connected:false,device_connected:false,last_applied_at:null as string|null,last_applied_id:0,last_source_seq:0,error:null as string|null};
   constructor(private runtime:string,private collector:Collector,private settings:SettingsStore,private assistant?:Assistant,private options:RemoteLinkOptions={}) {
-    this.feed=new DeviceSession(collector,settings,assistant);this.clock=options.clock??(()=>performance.now());this.timer=setInterval(()=>this.tick(),options.tickMs??2000);this.tick();
+    this.feed=new DeviceSession(collector,settings,assistant,"relay");this.audio=new LinkAudio('paired-screen',this.feed.boot,p=>{if(this.socket?.readyState!==WebSocket.OPEN||this.socket.bufferedAmount>192*1024)throw new Error('audio_backpressure');this.socket.send(JSON.stringify(p));},()=>this.feed.ownsDisplay()&&this.status().data_fresh);this.clock=options.clock??(()=>performance.now());this.timer=setInterval(()=>this.tick(),options.tickMs??2000);this.tick();
   }
   private config(){const f=this.runtime+"/remote-link.json";return existsSync(f)?validateRemote(JSON.parse(readFileSync(f,"utf8")) as RemoteCredentials):null;}
   configuration(){const c=this.config();return {enabled:c?.enabled??false,url:c?.url??"",has_mac_token:!!c?.mac_token,has_device_token:!!c?.device_token};}
@@ -85,7 +86,7 @@ export class RemoteLink {
   }
   private discard(ws:WebSocket,error:string|null){
     if(this.socket!==ws)return;
-    this.socket=null;this.connecting=false;this.statusValue.relay_connected=false;this.statusValue.device_connected=false;this.statusValue.last_applied_at=null;this.statusValue.error=error;
+    this.audio.reset();this.socket=null;this.connecting=false;this.statusValue.relay_connected=false;this.statusValue.device_connected=false;this.statusValue.last_applied_at=null;this.statusValue.error=error;
     this.nextConnect=this.clock()+Math.min(30000,1000*2**Math.min(this.failures++,5));ws.terminate();
   }
   private heartbeat(ws:WebSocket){
@@ -111,8 +112,9 @@ export class RemoteLink {
     }catch{this.connecting=false;this.statusValue.error="relay_connection_failed";this.nextConnect=this.clock()+5000;}
   }
   private receive(p:Record<string,unknown>){
+    if(this.audio.receive(p))return;
     if(p.kind==="peer"||p.kind==="heartbeat"){if(p.device_connected!==this.statusValue.device_connected)this.statusValue.last_applied_at=null;this.statusValue.device_connected=p.device_connected===true;if(p.kind==="peer"&&p.device_connected)this.sendView();return;}
-    if(p.kind==="applied"){
+    if(p.kind==="applied"){this.audio.negotiate(p);
       const id=this.feed.acknowledge(p);if(id!==null){this.statusValue.last_applied_id=id;this.statusValue.last_applied_at=new Date().toISOString();}return;
     }
     if(this.feed.command(p))this.sendView();
@@ -124,5 +126,5 @@ export class RemoteLink {
     if(ws.bufferedAmount>192*1024){this.statusValue.error="payload_or_backpressure_limit";return;}
     ws.send(view.text);this.feed.sent(view.id,view.display);this.statusValue.last_source_seq=view.seq;
   }
-  close(){this.stopped=true;clearInterval(this.timer);this.socket?.close();}
+  close(){this.stopped=true;this.audio.reset();clearInterval(this.timer);this.socket?.close();}
 }

@@ -108,14 +108,16 @@ export function createLiveGateway(collector: Collector, token: string, port = 87
         if(request.method!=="PATCH"&&request.method!=="POST")return error("method_not_allowed",405);
         if(!request.headers.get("content-type")?.startsWith("application/json"))return error("json_required",415);
         try{const raw=await request.text();if(raw.length>1024)return error("request_too_large",413);const body:unknown=JSON.parse(raw);
-          if(path==="/api/v1/voice/provider"&&speech&&request.method==="PATCH")return Response.json(speech.update(body),{headers});
+          if(path==="/api/v1/voice/provider"&&speech&&request.method==="PATCH"){const result=speech.update(body);voice.invalidatePrepared();return Response.json(result,{headers});}
           if(path==="/api/v1/voice/config"&&request.method==="PATCH")return Response.json(voice.update(body),{headers});
+          if(path==="/api/v1/voice/stop"&&request.method==="POST"){voice.stop();return Response.json({status:"stopped"},{headers});}
+          if(path==="/api/v1/voice/replay"&&request.method==="POST")return Response.json({queued:voice.replay()},{headers});
           if(path==="/api/v1/voice/test"&&request.method==="POST"){
             if(!body||typeof body!=="object"||Array.isArray(body)||Object.keys(body).length)return error("invalid_voice_test",400);
             if(speech&&!speech.available())return error("speech_disabled",409);
             if(!voice.configuration().enabled||voice.configuration().muted)return error("voice_disabled",409);
-            voice.enqueue({id:crypto.randomUUID(),topic:"test",kind:"milestone",text:"这是 Agent Companion 的语音播报测试。"});void voice.prepareNext(true);
-            return Response.json({status:"preparing_audio",output:"device_pending"},{status:202,headers});
+            voice.enqueue({id:crypto.randomUUID(),topic:"test",kind:"milestone",manual:true,text:"这是 Agent Companion 的语音播报测试。"});void voice.prepareNext(true);
+            return Response.json({status:"preparing_audio",output:voice.current().device_audio_ready?"device":"device_pending"},{status:202,headers});
           }
         }catch{return error("invalid_voice_config",400);}
         return error("not_found",404);
