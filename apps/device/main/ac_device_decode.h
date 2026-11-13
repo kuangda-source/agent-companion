@@ -10,3 +10,9 @@ bool ac_device_detail(const cJSON *json,ac_session_detail_t *out);
 bool ac_device_remote_frame(const cJSON *packet,const char *previous_boot,uint64_t last_id,int64_t now);
 typedef struct {uint64_t revision;unsigned brightness_percent;bool screen_on;} ac_display_command_t;
 bool ac_device_display_command(const cJSON *json,ac_display_command_t *out);
+
+/* Bounded USB diagnostic clip: 16 kHz, mono, signed little-endian PCM16. */
+#define AC_AUDIO_PCM_LIMIT 128000
+#define AC_AUDIO_VOLUME_LIMIT 80
+typedef struct {const char *base64;size_t bytes;char id[49];unsigned volume;} ac_audio_command_t;
+bool ac_device_audio_command(const cJSON *json,ac_audio_command_t *out);

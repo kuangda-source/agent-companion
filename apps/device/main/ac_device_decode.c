@@ -90,6 +90,18 @@ bool ac_device_detail(const cJSON *s,ac_session_detail_t *d){
     cJSON_ArrayForEach(v,get(s,"messages")){if(d->message_count>=12){d->truncated=true;break;}const char *r=str(get(v,"role"));if(strcmp(r,"user")&&strcmp(r,"assistant"))continue;ac_message_t *m=&d->messages[d->message_count++];m->assistant=strcmp(r,"assistant")==0;text(m->id,sizeof(m->id),get(v,"id"));text(m->text,sizeof(m->text),get(v,"text"));if(strlen(str(get(v,"text")))>=sizeof(m->text))d->truncated=true;}return true;
 }
 
+bool ac_device_audio_command(const cJSON *packet,ac_audio_command_t *out){
+    if(!out||strcmp(str(get(packet,"kind")),"audio_pcm")||!whole(get(packet,"volume"),0,AC_AUDIO_VOLUME_LIMIT)||num(get(packet,"sample_rate"))!=16000||num(get(packet,"channels"))!=1||num(get(packet,"bits_per_sample"))!=16)return false;
+    const char *id=str(get(packet,"id")),*encoded=str(get(packet,"pcm_base64"));size_t n=strlen(encoded),id_len=strlen(id);
+    if(!id_len||id_len>=sizeof(out->id)||n<4||n>4*((AC_AUDIO_PCM_LIMIT+2)/3)||n%4)return false;
+    for(size_t i=0;i<id_len;++i)if(!((id[i]>='a'&&id[i]<='z')||(id[i]>='A'&&id[i]<='Z')||(id[i]>='0'&&id[i]<='9')||id[i]=='-'||id[i]=='_'))return false;
+    size_t padding=(encoded[n-1]=='=')+(encoded[n-2]=='=');
+    for(size_t i=0;i<n-padding;++i){char c=encoded[i];if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='+'||c=='/'))return false;}
+    for(size_t i=n-padding;i<n;++i)if(encoded[i]!='=')return false;
+    size_t bytes=n/4*3-padding;if(!bytes||bytes>AC_AUDIO_PCM_LIMIT||bytes%2)return false;
+    ac_audio_command_t value={.base64=encoded,.bytes=bytes,.volume=(unsigned)num(get(packet,"volume"))};memcpy(value.id,id,id_len+1);*out=value;return true;
+}
+
 /* Sequence is scoped to a Gateway boot; only freshly authenticated full views enter UI. */
 bool ac_device_remote_frame(const cJSON *packet,const char *previous_boot,uint64_t last_id,int64_t now){
     const cJSON *id=cJSON_GetObjectItemCaseSensitive(packet,"id"),*clock=cJSON_GetObjectItemCaseSensitive(packet,"sent_at"),*boot=cJSON_GetObjectItemCaseSensitive(packet,"gateway_boot_id");

@@ -14,6 +14,16 @@ int main(int argc,char **argv){
     set(power_json,"brightness_percent",cJSON_CreateNumber(101));assert(!ac_device_display_command(power_json,&power));assert(power.brightness_percent==60);
     set(power_json,"brightness_percent",cJSON_CreateNumber(0));set(power_json,"screen_on",cJSON_CreateFalse());assert(ac_device_display_command(power_json,&power));assert(!power.screen_on&&power.brightness_percent==0);
     set(power_json,"screen_on",cJSON_CreateNumber(0));assert(!ac_device_display_command(power_json,&power));cJSON_Delete(power_json);
+    ac_audio_command_t audio={0};cJSON *clip=cJSON_Parse("{\"kind\":\"audio_pcm\",\"id\":\"speaker-test\",\"sample_rate\":16000,\"channels\":1,\"bits_per_sample\":16,\"volume\":35,\"pcm_base64\":\"AAAAAA==\"}");
+    assert(ac_device_audio_command(clip,&audio)&&audio.bytes==4&&audio.volume==35);
+    set(clip,"volume",cJSON_CreateNumber(80));assert(ac_device_audio_command(clip,&audio)&&audio.volume==80);
+    set(clip,"volume",cJSON_CreateNumber(81));assert(!ac_device_audio_command(clip,&audio));assert(audio.volume==80);set(clip,"volume",cJSON_CreateNumber(35));
+    set(clip,"sample_rate",cJSON_CreateNumber(48000));assert(!ac_device_audio_command(clip,&audio));set(clip,"sample_rate",cJSON_CreateNumber(16000));
+    set(clip,"id",cJSON_CreateString("bad\"id"));assert(!ac_device_audio_command(clip,&audio));set(clip,"id",cJSON_CreateString("speaker-test"));
+    const char *bad_pcm[]={"","AA==","AA=AAA==","AA\nA","A==="};for(size_t i=0;i<5;++i){set(clip,"pcm_base64",cJSON_CreateString(bad_pcm[i]));assert(!ac_device_audio_command(clip,&audio));}
+    size_t encoded_limit=4*((AC_AUDIO_PCM_LIMIT+2)/3);char *large=malloc(encoded_limit+5);assert(large);memset(large,'A',encoded_limit+4);large[encoded_limit-1]='=';large[encoded_limit]=0;
+    set(clip,"pcm_base64",cJSON_CreateString(large));assert(ac_device_audio_command(clip,&audio)&&audio.bytes==AC_AUDIO_PCM_LIMIT);
+    memset(large,'A',encoded_limit+4);large[encoded_limit+4]=0;set(clip,"pcm_base64",cJSON_CreateString(large));assert(!ac_device_audio_command(clip,&audio));free(large);cJSON_Delete(clip);
     time_t now=time(NULL);struct tm tm;gmtime_r(&now,&tm);char at[32];strftime(at,sizeof(at),"%Y-%m-%dT%H:%M:%SZ",&tm);set(base,"generated_at",cJSON_CreateString(at));set(base,"data_source",cJSON_CreateString("live"));assert(ac_device_snapshot(base,&snapshot));assert(snapshot.seq>0);
     assert(snapshot.generated_epoch==(int64_t)now);
     cJSON *quota_fixture=cJSON_Duplicate(base,1),*qa=cJSON_GetArrayItem(cJSON_GetObjectItem(quota_fixture,"agents"),0);
