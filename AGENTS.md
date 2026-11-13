@@ -7,4 +7,4 @@
 - Run ./scripts/dev check for relevant protocol/source changes. Mac build: ./scripts/dev mac. Firmware: ./scripts/device build rev3_x after checking actual chip revision. Never automatically flash or erase connected hardware; confirm backup, exact image/port and user intent first.
 - Preserve local authenticated loopback management API and separate LAN/device/relay credentials. Do not expose management routes over the relay or disable TLS verification.
 - Respect separate code and asset licenses. Do not remove character credits or imply commercial asset rights.
-- Report compilation, simulator checks and hardware checks separately. Voice, Letta and V2 are pending.
+- Report compilation, simulator checks and hardware checks separately. One-way device voice playback is implemented; real-time voice conversation, full Letta integration and V2 remain pending.

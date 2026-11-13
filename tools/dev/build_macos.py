@@ -4,13 +4,17 @@
 No account credentials, user records or settings are copied into the application.
 """
 from pathlib import Path
+import argparse
 import plistlib
 import os
 import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
-APP = Path.home() / "Applications/AgentCompanion.app"
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output",type=Path,default=Path.home()/"Applications/AgentCompanion.app",help="Build into a separate .app for a release without replacing the installed app")
+APP=parser.parse_args().output.expanduser().resolve()
+if APP.suffix!=".app": raise RuntimeError("Output must be an .app bundle")
 if (APP / "Contents/Info.plist").is_file():
     with (APP / "Contents/Info.plist").open("rb") as source:
         if plistlib.load(source).get("CFBundleIdentifier") not in ("cloud.kuangda.agentcompanion", "org.agentcompanion.desktop"):
@@ -46,6 +50,11 @@ licenses = resources / "Licenses"; licenses.mkdir(exist_ok=True)
 for file in (ROOT / "assets/fonts").glob("*-LICENSE.txt"): shutil.copy(file, licenses / file.name)
 for pet in (ROOT / "assets/pets").iterdir():
     if pet.is_dir() and (pet / "license.md").is_file(): shutil.copy(pet / "license.md", licenses / (pet.name + ".md"))
+    if pet.is_dir() and (pet / "provenance").is_dir():
+        provenance = licenses / pet.name
+        provenance.mkdir(exist_ok=True)
+        shutil.copy(pet / "license.md", provenance / "license.md")
+        shutil.copytree(pet / "provenance", provenance / "provenance", dirs_exist_ok=True)
 for name, path in [("LVGL", ROOT / ".deps/lvgl/LICENCE.txt"), ("SDL2", ROOT / ".tools/sdl2/share/licenses/SDL2/LICENSE.txt")]:
     if path.is_file(): shutil.copy(path, licenses / (name + ".txt"))
 shutil.copy(ROOT / "packages/dsh-superagent-core/LICENSE", licenses / "DeepSeek-Superagent-Core-MIT.txt")

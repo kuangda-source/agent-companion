@@ -2,6 +2,8 @@
 
 ## Mac 软件
 
+直接安装预编译包见 [Mac 安装说明](MAC_INSTALL.md)；固件发布包见 [备份与刷写](FIRMWARE_INSTALL.md)。以下为源码构建流程。
+
 当前构建脚本支持 Apple Silicon / macOS 13+，Intel、Windows、Linux 尚未适配。安装 Apple Command Line Tools（`xcode-select --install`）及 Python 3.9+ 后：
 
 ```bash
@@ -21,7 +23,7 @@ Mac 应用的私有数据目录为 `~/Library/Application Support/AgentCompanion
 
 在 Mac 的 **Agent** 页选择要显示和整理的来源，至少 1 个、最多 3 个。默认 Codex、Grok、DeepSeek；Claude Code 保留为可选项。所选来源用于小屏、Token 统计和 AI 助手；取消选择不会停止原软件任务。板端需升级到 0.2.13 才能使用新 Agent 和可变数量布局。
 
-Grok 当前接入 **Grok Bot 桌面应用**的本地缓存，无需 API Key。按 Bot 名称展示已缓存的公开消息；实时“工作中”、完成事件和 Token 未在缓存中提供，界面显示未知或“—”；每周额度每 5 分钟读取本地缓存，界面不显示更新时间。尚未在客户端加载的云端记录不会自动下载。Grok 桌宠素材暂用占位。
+Grok 当前接入 **Grok Bot 桌面应用**的本地缓存，无需 API Key。按 Bot 名称展示已缓存的公开消息；实时“工作中”、完成事件和 Token 未在缓存中提供，界面显示未知或“—”；每周额度每 5 分钟读取本地缓存，界面不显示更新时间。尚未在客户端加载的云端记录不会自动下载。Grok 动画素材已随仓库提供；底层状态未知时保持轻微 idle 动画，不伪造工作状态。
 
 在“API 设置”填写 HTTPS 的 OpenAI 兼容推理根地址（通常以 `/v1` 结尾），不要填管理后台网页或 `/chat/completions` 完整路径；模型名按服务商实际提供的名称填写。先保存设置，再到助手页手动更新简报。开启“自动整理”后，变化会合批处理；无变化不请求。每日上限覆盖简报与聊天，最多可设为 200 次。
 

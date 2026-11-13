@@ -4,13 +4,18 @@
   "appearance": {
     "theme": "neon",
     "animations_enabled": true,
-    "show_scheduled_tasks": true
+    "show_scheduled_tasks": true,
+    "agent_ids": [
+      "codex",
+      "grok",
+      "deepseek"
+    ]
   },
   "device": {
     "brightness": 75,
     "volume": 50,
     "sleep_after_seconds": 300,
-    "transport": "auto",
+    "transport": "usb",
     "relay_url": "",
     "follow_host_brightness": true,
     "follow_host_sleep": true

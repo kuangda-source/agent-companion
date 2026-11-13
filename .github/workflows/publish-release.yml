@@ -1,0 +1,51 @@
+name: Publish audited release
+
+on:
+  push:
+    branches: ['release-assets/v*']
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Fetch the public audited delivery commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=2 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Verify exact artifacts, source tag and checksum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#release-assets/}"
+          SOURCE_SHA="$(gh api "repos/${GH_REPO}/commits/${TAG}" --jq .sha)"
+          test "$SOURCE_SHA" = "$(git rev-parse HEAD^)"
+          python3 tools/release/validate_release.py release-assets --tag "$TAG" --source-commit "$SOURCE_SHA"
+      - name: Upload to a draft, then publish as a prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#release-assets/}"
+          VERSION="${TAG#v}"
+          # Never overwrite an existing public release. A failed draft can be
+          # completed by re-running this same job with the same checked hashes.
+          if gh release view "$TAG" --json isDraft --jq .isDraft > draft-state.txt 2>/dev/null; then
+            test "$(cat draft-state.txt)" = true
+          else
+            gh release create "$TAG" --verify-tag --draft --prerelease \
+              --title "V1 开发预览 · Mac ${VERSION} / Board 0.2.26" \
+              --notes-file docs/RELEASE_v0.4.19.md
+          fi
+          gh release upload "$TAG" release-assets/*.zip release-assets/SHA256SUMS.txt release-assets/release-manifest.json --clobber
+          gh release edit "$TAG" --draft=false --prerelease --latest=false

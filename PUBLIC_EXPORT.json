@@ -8,5 +8,7 @@
     "ESP32-P4 7B",
     "optional relay"
   ],
-  "credentials_included": false
+  "credentials_included": false,
+  "mac_version": "0.4.19",
+  "board_version": "0.2.26"
 }

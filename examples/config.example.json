@@ -7,7 +7,7 @@
     "require_pairing": true
   },
   "device": {
-    "prefer_transport": "prefer_wifi",
+    "prefer_transport": "prefer_usb",
     "ui_resolution": [
       1024,
       600
@@ -20,7 +20,8 @@
     "llm_provider": "mock",
     "tts_provider": "mock",
     "record_max_seconds": 45,
-    "memory_enabled": true
+    "memory_enabled": true,
+    "_comment": "Reserved examples; realtime ASR and voice conversation are not implemented. Configure optional assistant and one-way TTS in the Mac app."
   },
   "diagnostics": {
     "pelican_default_runs": 1,

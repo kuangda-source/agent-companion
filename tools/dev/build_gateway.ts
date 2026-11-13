@@ -7,9 +7,9 @@ const result=await Bun.build({entrypoints:[entry],target:"bun",compile:{target:"
   name:"libsql-native-for-fixed-macos-target",
   setup(build){
     build.onLoad({filter:/[/\\]node_modules[/\\]libsql[/\\]index\.js$/},args=>{
-      const source=readFileSync(args.path,"utf8"),needle='return require(`@libsql/${target}`);';
-      if(!source.includes(needle))throw new Error("LibSQL native loader changed; verify standalone packaging before updating dependencies.");
-      return{contents:source.replace(needle,'return require("@libsql/darwin-arm64");'),loader:"js"};
+      const source=readFileSync(args.path,"utf8"),needle='return require(`@libsql/${target}`);',nativeFunction=/function requireNative\(\) \{[\s\S]*?\n\}/;
+      if(!source.includes(needle)||!nativeFunction.test(source))throw new Error("LibSQL native loader changed; verify standalone packaging before updating dependencies.");
+      return{contents:source.replace(nativeFunction,'function requireNative() { return require("@libsql/darwin-arm64"); }'),loader:"js"};
     });
   },
 }]});

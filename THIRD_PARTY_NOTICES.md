@@ -4,7 +4,8 @@ Agent Companion's own software is MIT licensed. This does not relicense any thir
 
 | Component | Source / license |
 | --- | --- |
-| Pet character illustrations and animation derivatives | [CrossPet](https://github.com/lokicorvus/crosspet), community character settings and clea; **CC BY-NC-SA 4.0**, each `assets/pets/*/license.md` retains source, authors and modifications. Noncommercial asset license; replace assets for other uses as needed. |
+| Codex, Claude and DeepSeek character illustrations and animation derivatives | [CrossPet](https://github.com/lokicorvus/crosspet), community character settings and clea; **CC BY-NC-SA 4.0**, each `assets/pets/*/license.md` retains source, authors and modifications. Noncommercial asset license; replace assets for other uses as needed. |
+| Grok generated character and animations | clea / OpenAI image generation; reference and rights boundaries are retained in `assets/pets/grok-v1/license.md` and `provenance/`. No blanket MIT grant or commercial clearance is claimed for these assets. |
 | Source Han Sans | Adobe / SIL Open Font License 1.1; `assets/fonts/SourceHanSans-LICENSE.txt` |
 | Sarasa Gothic / Term SC | be5invis and contributors / SIL OFL 1.1; `assets/fonts/SarasaTermSC-LICENSE.txt` |
 | LVGL | LVGL contributors / MIT; downloaded at the version/hash in toolchain locks |

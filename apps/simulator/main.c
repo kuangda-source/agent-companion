@@ -6,6 +6,7 @@
 #include "ac_neon.h"
 #include "ac_assistant_panel.h"
 #include "ac_wifi_panel.h"
+#include "ac_volume_panel.h"
 #include "ac_window_theme.h"
 
 #include <stdio.h>
@@ -88,7 +89,7 @@ int main(int argc, char **argv)
     int smoke_usage=0,smoke_usage_filter=-1;
     bool smoke_usage_switch=false,smoke_usage_back=false;
     bool smoke_keyboard=false, smoke_parallax=false, smoke_theme=false, smoke_theme_dismiss=false, smoke_theme_open=false;
-    bool smoke_assistant=false, smoke_tools=false, smoke_assistant_update=false, smoke_assistant_scroll=false, smoke_assistant_escape=false,smoke_wifi=false;
+    bool smoke_assistant=false, smoke_tools=false, smoke_assistant_update=false, smoke_assistant_scroll=false, smoke_assistant_escape=false,smoke_wifi=false,smoke_volume=false;
     bool smoke_assistant_long=false,smoke_wifi_connected=false;
     const char *forced_theme=NULL;
     uint64_t settings_revision=UINT64_MAX;
@@ -109,6 +110,7 @@ int main(int argc, char **argv)
         else if(strcmp(argv[i], "--smoke-actions") == 0) smoke_actions = true;
         else if(strcmp(argv[i], "--smoke-assistant") == 0) smoke_assistant=true;
         else if(strcmp(argv[i], "--smoke-tools") == 0) smoke_tools=true;
+        else if(strcmp(argv[i], "--smoke-volume") == 0) smoke_volume=true;
         else if(strcmp(argv[i], "--smoke-wifi") == 0) smoke_wifi=true;
         else if(strcmp(argv[i], "--smoke-wifi-connected") == 0) {smoke_wifi=true;smoke_wifi_connected=true;}
         else if(strcmp(argv[i], "--smoke-assistant-update") == 0) smoke_assistant_update=true;
@@ -148,6 +150,7 @@ int main(int argc, char **argv)
         else if(strcmp(argv[i], "--capture-every") == 0 && i+1<argc) capture_every=atoi(argv[++i]);
         else { fprintf(stderr, "Usage: %s [--mock] [--gateway URL] [--frames N] [--capture output.bmp] [--capture-prefix PATH]\n", argv[0]); return 2; }
     }
+    if(smoke_volume&&!mock){fprintf(stderr,"Volume demonstration requires --mock\n");return 2;}
     SDL_SetMainReady();
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()); return 1;
@@ -236,6 +239,11 @@ int main(int argc, char **argv)
             click.button.state=down?SDL_PRESSED:SDL_RELEASED;
             click.button.x=450;click.button.y=168;SDL_PushEvent(&click);
         }
+        if(smoke_volume&&frames==60)ac_volume_panel_open();
+        if(smoke_volume&&(frames==120||frames==184||frames==240||frames==244)){
+            SDL_Event click={0};bool down=frames==120||frames==240;click.type=down?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;click.button.button=SDL_BUTTON_LEFT;click.button.state=down?SDL_PRESSED:SDL_RELEASED;click.button.x=frames<240?(frames==120?626:724):334;click.button.y=frames<240?280:346;SDL_PushEvent(&click);
+        }
+        if(smoke_volume&&frames>120&&frames<=180){SDL_Event motion={0};motion.type=SDL_MOUSEMOTION;motion.motion.x=626+(frames-120)*98/60;motion.motion.y=280;SDL_PushEvent(&motion);}
         if(smoke_wifi&&mock&&frames==60)ac_wifi_panel_open();
         if(smoke_wifi_connected&&mock&&frames==90){
             ac_wifi_status_t wifi={.revision=10,.connected=true,.relay_configured=true,.link_connected=true,.mac_connected=true,.data_fresh=true,.count=1};

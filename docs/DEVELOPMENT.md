@@ -8,7 +8,7 @@ Grok Bot 0.78.1 was observed using `~/Library/Application Support/Grok Bot/sand-
 
 Public text is `message` entries with user/assistant roles, or `send-message` with `message.type=text`. Tools, widgets, rich-text payloads, events and streaming fragments are excluded. A successfully read replica is fresh source evidence, while runtime state remains unknown. Weekly quota cache v2 is read on startup and then every 5 minutes independently of Bot messages. Its original readAtMs and cached provenance stay in the DTO; the connected display shows remaining quota without a last-known prefix or update time. Team-scoped or invalid readings are excluded. No completion, running state, token values or elapsed work duration is inferred from file times or the last reply. Assistant evidence marks these cached excerpts partial.
 
-Grok art binds to `grok-v1` in `examples/config.example.json`. A missing manifest resolves to the built-in placeholder; install the future approved pack under `assets/pets/grok-v1/` using the existing seven-state contract and build pipeline.
+Grok art binds to `grok-v1` in `examples/config.example.json`. The approved animated pack is included under `assets/pets/grok-v1/`, with its source and rights context. A missing manifest resolves to the built-in placeholder. Unknown telemetry deliberately uses idle visuals.
 
 Run `./scripts/dev check` and `./scripts/dev mac`. With device dependencies installed, verify the actual cJSON decoder on macOS with:
 
