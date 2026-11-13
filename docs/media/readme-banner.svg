@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="330" viewBox="0 0 1280 330" role="img" aria-labelledby="title desc">
+  <title id="title">Agent Companion — AI agent monitor</title>
+  <desc id="desc">V1 桌面小屏：只读监控、增量记忆和远端语音。Mac 0.4.19，板端 0.2.26。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#111d33" />
+      <stop offset="1" stop-color="#090f1c" />
+    </linearGradient>
+    <linearGradient id="accent">
+      <stop stop-color="#5ee9dc" />
+      <stop offset="1" stop-color="#b7a1ff" />
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6" fill="none" stroke="#72d9d5" stroke-width="1.4" />
+    </marker>
+  </defs>
+  <rect width="1280" height="330" rx="24" fill="url(#bg)" />
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans CJK SC, sans-serif">
+    <text x="54" y="52" fill="#8ca5c4" font-size="15" font-weight="600">YOUR AGENTS. ONE LITTLE SCREEN.</text>
+    <text x="50" y="127" fill="#f1f6ff" font-size="65" font-weight="700">Agent Companion</text>
+    <text x="54" y="181" fill="#bfd1e7" font-size="25" font-weight="400">让 AI 的进展，在桌面上看得见、听得到。</text>
+    <text x="54" y="223" fill="#78dcd5" font-size="19" font-weight="400">只读监控  /  增量记忆  /  远端语音</text>
+    <rect x="54" y="257" width="126" height="34" rx="17" fill="#142438" stroke="#2d425d" />
+    <text x="69" y="280" fill="#73e4d5" font-size="15" font-weight="500">V1 PREVIEW</text>
+    <rect x="192" y="257" width="142" height="34" rx="17" fill="#142438" stroke="#2d425d" />
+    <text x="207" y="280" fill="#c0b2ff" font-size="15" font-weight="500">Mac 0.4.19</text>
+    <rect x="346" y="257" width="154" height="34" rx="17" fill="#142438" stroke="#2d425d" />
+    <text x="361" y="280" fill="#9bc9ff" font-size="15" font-weight="500">Board 0.2.26</text>
+    <circle cx="1068" cy="156" r="145" fill="#11263b" />
+    <circle cx="1068" cy="156" r="118" fill="none" stroke="#213d56" stroke-dasharray="5 10" />
+    <rect x="910" y="61" width="300" height="202" rx="18" fill="#101827" stroke="#4a7790" />
+    <rect x="926" y="78" width="268" height="153" rx="10" fill="#09141e" stroke="#25435b" />
+    <path d="M1040 263v20h44v-20M1015 284h94" fill="none" stroke="#6ba0b4" stroke-width="5" stroke-linecap="round" />
+    <rect x="944" y="97" width="29" height="24" rx="7" fill="#5ee9dc" opacity=".85" />
+    <path d="M988 104h114M988 116h74" stroke="#5ee9dc" stroke-width="3" stroke-linecap="round" opacity=".6" />
+    <rect x="944" y="141" width="29" height="24" rx="7" fill="#bba4fa" opacity=".85" />
+    <path d="M988 148h114M988 160h74" stroke="#bba4fa" stroke-width="3" stroke-linecap="round" opacity=".6" />
+    <rect x="944" y="185" width="29" height="24" rx="7" fill="#7ab9f1" opacity=".85" />
+    <path d="M988 192h114M988 204h74" stroke="#7ab9f1" stroke-width="3" stroke-linecap="round" opacity=".6" />
+    <path d="M1123 176l8-13 8 28 8-41 8 26 8-8" fill="none" stroke="#61ded7" stroke-width="3" stroke-linejoin="round" />
+  </g>
+</svg>
